@@ -33,6 +33,28 @@ php artisan vendor:publish --tag=filament-dynamic-dashboard-migrations
 php artisan migrate
 ```
 
+### Vite / Tailwind CSS compatibility
+
+This package uses Tailwind CSS classes in its Blade views. For these styles to be compiled correctly, Tailwind must be able to scan the package views. You have two options:
+
+**Option A — Publish the views** (recommended if you plan to customize them):
+
+```bash
+php artisan vendor:publish --tag=filament-dynamic-dashboard-views
+```
+
+The views will be copied to `resources/views/vendor/filament-dynamic-dashboard/`.
+
+**Option B — Reference the package path in your theme CSS** (no file duplication):
+
+In your Filament theme file (e.g. `resources/css/filament/admin/theme.css`), add the following `@source` directive:
+
+```css
+@source '../../../../vendor/mddev31/filament-dynamic-dashboard/resources/views/**/*';
+```
+
+> **Note:** One of these two options is required. Without it, Tailwind will not detect the utility classes used by the package and some styles will be missing.
+
 Optionally publish the configuration file:
 
 ```bash
