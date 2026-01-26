@@ -20,7 +20,7 @@ use MDDev\DynamicDashboard\Models\DashboardWidget;
 return [
     'dashboard_columns' => ['sm' => 3, 'md' => 6, 'lg' => 12],
     'widget_columns' => 3,
-    'use_spatie_permissions' => true,
+    'use_spatie_permissions' => false,
     'models' => [
         'dashboard' => Dashboard::class,
         'widget' => DashboardWidget::class,

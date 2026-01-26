@@ -1,11 +1,7 @@
 <?php
 
 return [
-    'default_name' => 'Default Dashboard',
-    'select_label' => 'Dashboard',
     'select_dashboard' => 'Select Dashboard',
-    'select' => 'Select',
-    'dashboard' => 'Dashboard',
 
     // Dashboard Manager
     'manage' => 'Manage dashboards',
@@ -32,15 +28,11 @@ return [
     // Widget Add
     'add_widget' => 'Widget',
     'add_button' => 'Add',
-    'widget_info' => 'Widget Information',
     'widget_name' => 'Title',
     'widget_type' => 'Widget Type',
     'widget_size' => 'Size',
-    'widget_columns' => 'Columns',
-    'widget_ordering' => 'Order',
     'widget_settings' => 'Widget Settings',
     'display_title' => 'Display title',
-    'close' => 'Close',
 
     // Widget Actions
     'edit_widget' => 'Edit Widget',

@@ -415,7 +415,7 @@ php artisan vendor:publish --tag=filament-dynamic-dashboard-config
 |--------------------------|----------|--------------------------------------|-----------------------------------------------------------------|
 | `dashboard_columns`      | `array`  | `['sm' => 3, 'md' => 6, 'lg' => 12]` | Responsive grid breakpoints for the dashboard layout            |
 | `widget_columns`         | `int`    | `3`                                  | Default grid column span for new widgets                        |
-| `use_spatie_permissions` | `bool`   | `true`                               | Enable Spatie role integration (auto-swaps the Dashboard model) |
+| `use_spatie_permissions` | `bool`   | `false`                              | Enable Spatie role integration (auto-swaps the Dashboard model) |
 | `models.dashboard`       | `string` | `Dashboard::class`                   | Eloquent model implementing `DynamicDashboardModel`             |
 | `models.widget`          | `string` | `DashboardWidget::class`             | Eloquent model implementing `DynamicDashboardWidgetModel`       |
 
@@ -425,7 +425,7 @@ Full config file:
 return [
     'dashboard_columns' => ['sm' => 3, 'md' => 6, 'lg' => 12],
     'widget_columns' => 3,
-    'use_spatie_permissions' => true,
+    'use_spatie_permissions' => false,
     'models' => [
         'dashboard' => \MDDev\DynamicDashboard\Models\Dashboard::class,
         'widget' => \MDDev\DynamicDashboard\Models\DashboardWidget::class,
@@ -459,7 +459,7 @@ The helper `DynamicDashboardHelper::DashboardModel()` resolves the configured mo
 
 ## Translations
 
-Supported languages: **English** (`en`), **French** (`fr`).
+Supported languages: **English** (`en`), **French** (`fr`), **Spanish** (`es`), **Portuguese** (`pt`), **German** (`de`), **Russian** (`ru`), **Chinese** (`zh`), **Bulgarian** (`bg`), **Croatian** (`hr`), **Danish** (`da`), **Estonian** (`et`), **Finnish** (`fi`), **Greek** (`el`), **Hungarian** (`hu`), **Italian** (`it`), **Dutch** (`nl`), **Polish** (`pl`), **Romanian** (`ro`), **Swedish** (`sv`), **Czech** (`cs`), **Japanese** (`ja`), **Arabic** (`ar`).
 
 Publish translations to customize them:
 
