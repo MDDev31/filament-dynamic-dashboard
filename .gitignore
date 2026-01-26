@@ -1,0 +1,10 @@
+./.idea
+/.claude
+/vendor
+# Laravel BOOST
+.ai
+.mcp.json
+boost.json
+CLAUDE.md
+.junie
+nul
