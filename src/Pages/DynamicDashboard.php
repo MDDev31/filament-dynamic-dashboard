@@ -381,7 +381,7 @@ abstract class DynamicDashboard extends Page
 
     public function filtersForm(Schema $schema): Schema
     {
-        if (static::hasFilters()) {
+        if (static::hasFilters() && $this->currentDashboard) {
             $displayFilters = $this->currentDashboard->getDisplayFilters();
             $fields = static::getDashboardFilters();
             $fieldsVisible = 0;
@@ -426,12 +426,12 @@ abstract class DynamicDashboard extends Page
 
     public function getHeading(): string|Htmlable|null
     {
-        return $this->currentDashboard->getName() ?? parent::getHeading();
+        return $this->currentDashboard?->getName() ?? parent::getHeading();
     }
 
     public function getSubheading(): string|Htmlable|null
     {
-        return Html::make($this->currentDashboard->getDescription() ?? parent::getSubheading());
+        return Html::make($this->currentDashboard?->getDescription() ?? parent::getSubheading());
     }
 
     /**
@@ -708,7 +708,7 @@ abstract class DynamicDashboard extends Page
             ActionGroup::make($actions)->dropdown(false),
             $manageAction,
         ])
-            ->label($currentDashboard->getName() ?? __('filament-dynamic-dashboard::dashboard.select_dashboard'))
+            ->label($currentDashboard?->getName() ?? __('filament-dynamic-dashboard::dashboard.select_dashboard'))
             ->icon(Heroicon::OutlinedViewColumns)
             ->color('gray')
             ->dropdownWidth(Width::ExtraSmall)
