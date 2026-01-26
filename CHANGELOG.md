@@ -17,4 +17,4 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Locked dashboard mode to prevent widget modifications
 - Spatie Permission integration for role-based dashboard visibility
 - Customizable models via config (`models.dashboard`, `models.widget`)
-- English and French translations
+- 22 languages translations
