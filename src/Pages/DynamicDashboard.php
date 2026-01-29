@@ -76,6 +76,18 @@ abstract class DynamicDashboard extends Page
      */
     public ?int $actionWidgetId = null;
 
+    /**
+     * Define custom form components for editing default filter values.
+     * Return a keyed array ['filterName' => Component].
+     * Filters not in this array will use the original component from getDashboardFilters().
+     *
+     * @return array<string, Field>
+     */
+    public static function getDefaultFilterSchema(): array
+    {
+        return [];
+    }
+
     public function mount(): void
     {
         $this->initializeCurrentDashboard();
@@ -84,7 +96,7 @@ abstract class DynamicDashboard extends Page
         // getFiltersSessionKey() now includes dashboard ID, so each dashboard has its own session
         $sessionKey = $this->getFiltersSessionKey();
 
-        if (! session()->has($sessionKey)) {
+        if (!session()->has($sessionKey)) {
             // First time viewing this dashboard (or after switch) - apply defaults
             $this->applyDefaultFilters();
         }
@@ -99,21 +111,33 @@ abstract class DynamicDashboard extends Page
         $displayable = $this->getDisplayableDashboards();
 
         // Check if the stored dashboard is still displayable
-        if ($this->currentDashboardId && ! $displayable->firstWhere('id', $this->currentDashboardId)) {
+        if ($this->currentDashboardId && !$displayable->firstWhere('id', $this->currentDashboardId)) {
             $this->currentDashboardId = null;
         }
 
         // If no dashboard selected, select the first displayable
-        if (! $this->currentDashboardId) {
+        if (!$this->currentDashboardId) {
             $this->currentDashboardId = $displayable->first()?->getId();
         }
 
         // If dashboards exist but none are displayable, deny access
-        if (! $this->currentDashboardId && $this->getAvailableDashboards()->exists()) {
+        if (!$this->currentDashboardId && $this->getAvailableDashboards()->exists()) {
             abort(403);
         }
 
         $this->loadCurrentDashboard();
+    }
+
+    /**
+     * Get available dashboards filtered by canDisplay authorization.
+     *
+     * @return \Illuminate\Support\Collection<int, DynamicDashboardModel>
+     */
+    protected function getDisplayableDashboards(): \Illuminate\Support\Collection
+    {
+        return $this->getAvailableDashboards()->get()->filter(
+            fn(DynamicDashboardModel $dashboard) => static::canDisplay($dashboard)
+        );
     }
 
     /**
@@ -125,15 +149,35 @@ abstract class DynamicDashboard extends Page
     }
 
     /**
-     * Get available dashboards filtered by canDisplay authorization.
+     * Determine if the current user can view this dashboard.
      *
-     * @return \Illuminate\Support\Collection<int, DynamicDashboardModel>
+     * Editors always have access. Otherwise, Spatie roles are checked when
+     * the model supports them, falling back to the page-level `canAccess()`.
      */
-    protected function getDisplayableDashboards(): \Illuminate\Support\Collection
+    public static function canDisplay(DynamicDashboardModel $dashboard): bool
     {
-        return $this->getAvailableDashboards()->get()->filter(
-            fn (DynamicDashboardModel $dashboard) => static::canDisplay($dashboard)
-        );
+        if (static::canEdit()) {
+            return true;
+        }
+
+        if (method_exists($dashboard, 'roles') && $dashboard->roles->isNotEmpty()) {
+            $user = auth()->user();
+
+            if (!$user || !method_exists($user, 'hasAnyRole') || !$user->hasAnyRole($dashboard->roles)) {
+                return false;
+            }
+        }
+
+        return static::canAccess();
+    }
+
+    /**
+     * Determine if the current user can edit dashboards and widgets.
+     * Override in subclasses to restrict editing.
+     */
+    public static function canEdit(): bool
+    {
+        return true;
     }
 
     /**
@@ -144,6 +188,68 @@ abstract class DynamicDashboard extends Page
         $this->currentDashboard = $this->currentDashboardId
             ? $this->getAvailableDashboards()->find($this->currentDashboardId)
             : null;
+    }
+
+    /**
+     * Get dashboard-specific session key for filters.
+     * This ensures each dashboard has its own filter session.
+     */
+    public function getFiltersSessionKey(): string
+    {
+        $pageKey = md5(static::class);
+        $dashboardId = $this->currentDashboardId ?? 'default';
+
+        return $pageKey.'_dashboard_'.$dashboardId.'_filters';
+    }
+
+    /**
+     * Apply default filters (used by reset and dashboard switch).
+     */
+    protected function applyDefaultFilters(): void
+    {
+        $defaults = $this->getResolvedDefaultFilters();
+        $this->filters = $defaults ?? [];
+
+        if (method_exists($this, 'getFiltersForm')) {
+            $this->getFiltersForm()->fill($this->filters);
+        }
+
+        // Persist to session
+        if ($this->persistsFiltersInSession()) {
+            session()->put($this->getFiltersSessionKey(), $this->filters);
+        }
+    }
+
+    /**
+     * Get resolved default filters from the current dashboard.
+     *
+     * @return array<string, mixed>|null
+     */
+    protected function getResolvedDefaultFilters(): ?array
+    {
+        if (!$this->currentDashboard) {
+            return null;
+        }
+
+        $defaults = $this->currentDashboard->getFilters() ?? [];
+
+        if (empty($defaults)) {
+            return null;
+        }
+
+        return static::resolveFilterDefaults($defaults);
+    }
+
+    /**
+     * Convert stored default filter values to actual filter values.
+     * Called when applying defaults on first load or reset.
+     *
+     * @param  array<string, mixed>  $defaults  The stored default values
+     * @return array<string, mixed> The resolved filter values
+     */
+    public static function resolveFilterDefaults(array $defaults): array
+    {
+        return $defaults;
     }
 
     /**
@@ -182,88 +288,6 @@ abstract class DynamicDashboard extends Page
         return [];
     }
 
-    /**
-     * Define custom form components for editing default filter values.
-     * Return a keyed array ['filterName' => Component].
-     * Filters not in this array will use the original component from getDashboardFilters().
-     *
-     * @return array<string, Field>
-     */
-    public static function getDefaultFilterSchema(): array
-    {
-        return [];
-    }
-
-    /**
-     * Convert stored default filter values to actual filter values.
-     * Called when applying defaults on first load or reset.
-     *
-     * @param  array<string, mixed>  $defaults  The stored default values
-     * @return array<string, mixed> The resolved filter values
-     */
-    public static function resolveFilterDefaults(array $defaults): array
-    {
-        return $defaults;
-    }
-
-    /**
-     * Get dashboard-specific session key for filters.
-     * This ensures each dashboard has its own filter session.
-     */
-    public function getFiltersSessionKey(): string
-    {
-        $pageKey = md5(static::class);
-        $dashboardId = $this->currentDashboardId ?? 'default';
-
-        return $pageKey.'_dashboard_'.$dashboardId.'_filters';
-    }
-
-    /**
-     * Get resolved default filters from the current dashboard.
-     *
-     * @return array<string, mixed>|null
-     */
-    protected function getResolvedDefaultFilters(): ?array
-    {
-        if (! $this->currentDashboard) {
-            return null;
-        }
-
-        $defaults = $this->currentDashboard->getFilters() ?? [];
-
-        if (empty($defaults)) {
-            return null;
-        }
-
-        return static::resolveFilterDefaults($defaults);
-    }
-
-    /**
-     * Apply default filters (used by reset and dashboard switch).
-     */
-    protected function applyDefaultFilters(): void
-    {
-        $defaults = $this->getResolvedDefaultFilters();
-        $this->filters = $defaults ?? [];
-
-        if (method_exists($this, 'getFiltersForm')) {
-            $this->getFiltersForm()->fill($this->filters);
-        }
-
-        // Persist to session
-        if ($this->persistsFiltersInSession()) {
-            session()->put($this->getFiltersSessionKey(), $this->filters);
-        }
-    }
-
-    /**
-     * Reset filters to defaults.
-     */
-    public function resetFilters(): void
-    {
-        $this->applyDefaultFilters();
-    }
-
     public function getFiltersFormContentComponent(): Component
     {
         return EmbeddedSchema::make('filtersForm');
@@ -273,110 +297,82 @@ abstract class DynamicDashboard extends Page
     {
         $widgetModels = $this->getCurrentDashboardWidgets() ?? collect();
 
-        $wrappedWidgets = $widgetModels->map(function (DynamicDashboardWidgetModel $widgetModel) {
-            // check if the widget can be displayed
-            if (! $this->isWidgetAvailableForDashboard($widgetModel->getType())) {
-                return null;
-            }
-
-            $widgetConfig = $widgetModel->getWidget();
-            if (! $widgetConfig) {
-                return null;
-            }
-
-            return $this->wrapWidget($widgetModel, $widgetConfig);
-        })->filter()->all();
-
-        return Grid::make($this->getColumns())->schema($wrappedWidgets)->dense();
-    }
-
-    /**
-     * Wrap a widget with a header containing name and action buttons.
-     */
-    protected function wrapWidget(DynamicDashboardWidgetModel $widgetModel, mixed $widgetConfig): Component
-    {
-        $widgetId = $widgetModel->getId();
-        $name = $widgetModel->getName();
-        $displayTitle = $widgetModel->getDisplayTitle();
-
-        return ViewComponent::make('filament-dynamic-dashboard::schemas.widget-wrapper')
-            ->viewData([
-                'name' => $name,
-                'displayTitle' => $displayTitle,
-                'canEdit' => static::canEdit(),
-                'isLocked' => $this->currentDashboard?->isLocked() ?? false,
+        // Pre-filter to match what getWidgetsSchemaComponents will do
+        $validWidgets = $widgetModels
+            ->filter(fn(DynamicDashboardWidgetModel $model) => $this->isWidgetAvailableForDashboard($model->getType()))
+            ->map(fn(DynamicDashboardWidgetModel $model) => [
+                'model' => $model,
+                'config' => $model->getWidget(),
             ])
-            ->schema([
-                // Actions (first child - rendered in hover container)
-                Actions::make([
-                    Action::make('editWidget_'.$widgetId)
-                        ->icon(Heroicon::OutlinedPencilSquare)
-                        ->iconButton()
-                        ->size(Size::ExtraSmall)
-                        ->color('gray')
-                        ->tooltip(__('filament-dynamic-dashboard::dashboard.edit_widget'))
-                        ->modalHeading(__('filament-dynamic-dashboard::dashboard.edit_widget'))
-                        ->modalWidth(Width::FourExtraLarge)
-                        ->fillForm(fn (): array => [
-                            'name' => $widgetModel->getName(),
-                            'type' => $widgetModel->getType(),
-                            'columns' => $widgetModel->getColumns(),
-                            'display_title' => $widgetModel->getDisplayTitle(),
-                            'settings' => $widgetModel->getSettings(),
-                        ])
-                        ->schema(fn (Schema $schema): Schema => $this->getAddWidgetFormSchema($schema))
-                        ->action(function (array $data) use ($widgetId): void {
-                            abort_unless(static::canEdit(), 403);
-                            $widget = DynamicDashboardHelper::WidgetModel()::find($widgetId);
-                            $widget?->update([
-                                'name' => $data['name'],
-                                'type' => $data['type'],
-                                'columns' => $data['columns'] ?? config('filament-dynamic-dashboard.widget_columns', 3),
-                                'display_title' => $data['display_title'] ?? true,
-                                'settings' => $data['settings'] ?? [],
-                            ]);
-                            $this->redirect(static::getUrl(), navigate: true);
-                        }),
-                    Action::make('deleteWidget_'.$widgetId)
-                        ->icon(Heroicon::OutlinedTrash)
-                        ->iconButton()
-                        ->size(Size::ExtraSmall)
-                        ->color('danger')
-                        ->tooltip(__('filament-dynamic-dashboard::dashboard.delete_widget'))
-                        ->requiresConfirmation()
-                        ->modalHeading(__('filament-dynamic-dashboard::dashboard.delete_widget'))
-                        ->modalDescription(__('filament-dynamic-dashboard::dashboard.delete_widget_confirmation'))
-                        ->action(function () use ($widgetId): void {
-                            abort_unless(static::canEdit(), 403);
-                            $widget = DynamicDashboardHelper::WidgetModel()::find($widgetId);
-                            $widget?->delete();
-                            $this->redirect(static::getUrl(), navigate: true);
-                        }),
-                ]),
-                // The widget itself (remaining children - rendered in content area)
-                ...$this->getWidgetsSchemaComponents([$widgetConfig]),
-            ])
-            ->columnSpan($widgetModel->getColumns());
+            ->filter(fn(array $widgetData) => $widgetData['config'] !== null)
+            ->filter(fn(array $widgetData) => $widgetData['config']->widget::canView())
+            ->values();
+
+        // Get configs for getWidgetsSchemaComponents
+        $configs = $validWidgets->pluck('config')->all();
+
+        // Get the Livewire components from parent method (preserves all Livewire setup)
+        $livewireComponents = $this->getWidgetsSchemaComponents($configs);
+
+        // Wrap each component with the corresponding model
+        $widgetSchemas = $validWidgets->map(function (array $pair, int $index) use ($livewireComponents) {
+            return $this->wrapWidget($pair['model'], $livewireComponents[$index]);
+        })->all();
+
+        return Grid::make($this->getColumns())->schema($widgetSchemas)->dense();
     }
 
     /**
      * Get widgets for the current dashboard.
      *
-     * @return null|Collection<DynamicDashboardWidgetModel>
+     * @return ?Collection
      */
     public function getCurrentDashboardWidgets(): ?Collection
     {
 
-        if (! $this->currentDashboard) {
+        if (!$this->currentDashboard) {
             return null;
         }
 
         return DynamicDashboardHelper::WidgetModel()::availableFor($this->currentDashboard)->get();
     }
 
+    /**
+     * Check if a widget is available for the current dashboard page.
+     *
+     * @param  class-string<DynamicWidget>  $widgetClass
+     */
+    protected function isWidgetAvailableForDashboard(string $widgetClass): bool
+    {
+        if (!class_exists($widgetClass) || !$widgetClass::canView()) {
+            return false;
+        }
+        // Check if the widget has the availableForDashboard method
+        if (method_exists($widgetClass, 'availableForDashboard')) {
+            $allowedDashboards = $widgetClass::availableForDashboard();
+            // Empty array means available for all dashboards
+            if (empty($allowedDashboards)) {
+                return true;
+            }
+
+            // Check if current dashboard page class is in the allowed list
+            return in_array(static::class, $allowedDashboards, true);
+        }
+
+        return true; // No restriction, available for all
+    }
+
     public function getColumns(): int|array
     {
         return config('filament-dynamic-dashboard.dashboard_columns');
+    }
+
+    /**
+     * Reset filters to defaults.
+     */
+    public function resetFilters(): void
+    {
+        $this->applyDefaultFilters();
     }
 
     public function filtersForm(Schema $schema): Schema
@@ -471,7 +467,7 @@ abstract class DynamicDashboard extends Page
                     'settings' => $widget?->getSettings(),
                 ];
             })
-            ->schema(fn (Schema $schema): Schema => $this->getAddWidgetFormSchema($schema))
+            ->schema(fn(Schema $schema): Schema => $this->getAddWidgetFormSchema($schema))
             ->action(function (array $data): void {
                 $widget = DynamicDashboardHelper::WidgetModel()::find($this->actionWidgetId);
                 $widget?->update([
@@ -512,31 +508,72 @@ abstract class DynamicDashboard extends Page
     }
 
     /**
-     * @return array<Action|ActionGroup>
+     * Wrap a widget with a header containing name and action buttons.
      */
-    protected function getHeaderActions(): array
+    protected function wrapWidget(DynamicDashboardWidgetModel $widgetModel, Component $widgetComponent): Component
     {
-        return [
-            $this->getAddWidgetAction(),
-            $this->getDashboardSelectorActionGroup(),
-        ];
-    }
+        $widgetId = $widgetModel->getId();
+        $name = $widgetModel->getName();
+        $displayTitle = $widgetModel->getDisplayTitle();
 
-    protected function getAddWidgetAction(): Action
-    {
-        return Action::make('addWidget')
-            ->label(__('filament-dynamic-dashboard::dashboard.add_widget'))
-            ->icon(Heroicon::OutlinedPlus)
-            ->size(Size::Small)
-            ->modalHeading(__('filament-dynamic-dashboard::dashboard.add_widget'))
-            ->modalWidth(Width::FourExtraLarge)
-            ->modalSubmitActionLabel(__('filament-dynamic-dashboard::dashboard.add_button'))
-            ->modalFooterActionsAlignment(Alignment::End)
-            ->schema(fn (Schema $schema): Schema => $this->getAddWidgetFormSchema($schema))
-            ->visible(fn (): bool => $this->currentDashboardId && static::canEdit() && ! $this->currentDashboard?->isLocked())
-            ->action(function (array $data): void {
-                $this->createWidget($data);
-            });
+        return ViewComponent::make('filament-dynamic-dashboard::schemas.widget-wrapper')
+            ->viewData([
+                'name' => $name,
+                'displayTitle' => $displayTitle,
+                'canEdit' => static::canEdit(),
+                'isLocked' => $this->currentDashboard?->isLocked() ?? false,
+            ])
+            ->schema([
+                // Actions (first child - rendered in hover container)
+                Actions::make([
+                    Action::make('editWidget_'.$widgetId)
+                        ->icon(Heroicon::OutlinedPencilSquare)
+                        ->iconButton()
+                        ->size(Size::ExtraSmall)
+                        ->color('gray')
+                        ->tooltip(__('filament-dynamic-dashboard::dashboard.edit_widget'))
+                        ->modalHeading(__('filament-dynamic-dashboard::dashboard.edit_widget'))
+                        ->modalWidth(Width::FourExtraLarge)
+                        ->fillForm(fn(): array => [
+                            'name' => $widgetModel->getName(),
+                            'type' => $widgetModel->getType(),
+                            'columns' => $widgetModel->getColumns(),
+                            'display_title' => $widgetModel->getDisplayTitle(),
+                            'settings' => $widgetModel->getSettings(),
+                        ])
+                        ->schema(fn(Schema $schema): Schema => $this->getAddWidgetFormSchema($schema))
+                        ->action(function (array $data) use ($widgetId): void {
+                            abort_unless(static::canEdit(), 403);
+                            $widget = DynamicDashboardHelper::WidgetModel()::find($widgetId);
+                            $widget?->update([
+                                'name' => $data['name'],
+                                'type' => $data['type'],
+                                'columns' => $data['columns'] ?? config('filament-dynamic-dashboard.widget_columns', 3),
+                                'display_title' => $data['display_title'] ?? true,
+                                'settings' => $data['settings'] ?? [],
+                            ]);
+                            $this->redirect(static::getUrl(), navigate: true);
+                        }),
+                    Action::make('deleteWidget_'.$widgetId)
+                        ->icon(Heroicon::OutlinedTrash)
+                        ->iconButton()
+                        ->size(Size::ExtraSmall)
+                        ->color('danger')
+                        ->tooltip(__('filament-dynamic-dashboard::dashboard.delete_widget'))
+                        ->requiresConfirmation()
+                        ->modalHeading(__('filament-dynamic-dashboard::dashboard.delete_widget'))
+                        ->modalDescription(__('filament-dynamic-dashboard::dashboard.delete_widget_confirmation'))
+                        ->action(function () use ($widgetId): void {
+                            abort_unless(static::canEdit(), 403);
+                            $widget = DynamicDashboardHelper::WidgetModel()::find($widgetId);
+                            $widget?->delete();
+                            $this->redirect(static::getUrl(), navigate: true);
+                        }),
+                ]),
+                // The widget itself (second child - rendered in content area)
+                $widgetComponent,
+            ])
+            ->columnSpan($widgetModel->getColumns());
     }
 
     protected function getAddWidgetFormSchema(Schema $schema): Schema
@@ -555,7 +592,8 @@ abstract class DynamicDashboard extends Page
 
                                 Select::make('type')
                                     ->label(__('filament-dynamic-dashboard::dashboard.widget_type'))
-                                    ->options(fn (): array => $this->getAvailableWidgetOptions())
+                                    ->options(fn(): array => $this->getAvailableWidgetOptions())
+                                    ->placeholder(__('filament-dynamic-dashboard::dashboard.widget_type_placeholder'))
                                     ->required()
                                     ->live()
                                     ->afterStateUpdated(function (Select $component): void {
@@ -586,8 +624,8 @@ abstract class DynamicDashboard extends Page
                         // Column 2: Widget Settings
                         Section::make(__('filament-dynamic-dashboard::dashboard.widget_settings'))
                             ->key('widgetSettings')
-                            ->schema(fn (Get $get): array => $this->getWidgetSettingsSchema($get('type')))
-                            ->visible(fn (Get $get): bool => $get('type') !== null && $this->hasWidgetSettings($get('type')))
+                            ->schema(fn(Get $get): array => $this->getWidgetSettingsSchema($get('type')))
+                            ->visible(fn(Get $get): bool => $get('type') !== null && $this->hasWidgetSettings($get('type')))
                             ->columnSpan(1),
                     ]),
             ]);
@@ -635,7 +673,7 @@ abstract class DynamicDashboard extends Page
      */
     protected function getWidgetSettingsSchema(?string $type): array
     {
-        if ($type === null || ! class_exists($type) || ! is_subclass_of($type, DynamicWidget::class)) {
+        if ($type === null || !class_exists($type) || !is_subclass_of($type, DynamicWidget::class)) {
             return [];
         }
 
@@ -647,11 +685,39 @@ abstract class DynamicDashboard extends Page
      */
     protected function hasWidgetSettings(?string $type): bool
     {
-        if ($type === null || ! class_exists($type) || ! is_subclass_of($type, DynamicWidget::class)) {
+        if ($type === null || !class_exists($type) || !is_subclass_of($type, DynamicWidget::class)) {
             return false;
         }
 
         return count($type::getSettingsFormSchema()) > 0;
+    }
+
+    /**
+     * @return array<Action|ActionGroup>
+     */
+    protected function getHeaderActions(): array
+    {
+        return [
+            $this->getAddWidgetAction(),
+            $this->getDashboardSelectorActionGroup(),
+        ];
+    }
+
+    protected function getAddWidgetAction(): Action
+    {
+        return Action::make('addWidget')
+            ->label(__('filament-dynamic-dashboard::dashboard.add_widget'))
+            ->icon(Heroicon::OutlinedPlus)
+            ->size(Size::Small)
+            ->modalHeading(__('filament-dynamic-dashboard::dashboard.add_widget'))
+            ->modalWidth(Width::FourExtraLarge)
+            ->modalSubmitActionLabel(__('filament-dynamic-dashboard::dashboard.add_button'))
+            ->modalFooterActionsAlignment(Alignment::End)
+            ->schema(fn(Schema $schema): Schema => $this->getAddWidgetFormSchema($schema))
+            ->visible(fn(): bool => $this->currentDashboardId && static::canEdit() && !$this->currentDashboard?->isLocked())
+            ->action(function (array $data): void {
+                $this->createWidget($data);
+            });
     }
 
     /**
@@ -696,7 +762,7 @@ abstract class DynamicDashboard extends Page
             ->color(Color::Blue)
             ->slideOver()
             ->modalHeading(__('filament-dynamic-dashboard::dashboard.manage'))
-            ->modalContent(fn (): View => view('filament-dynamic-dashboard::livewire.dashboard-manager-modal', [
+            ->modalContent(fn(): View => view('filament-dynamic-dashboard::livewire.dashboard-manager-modal', [
                 'pageClass' => static::class,
                 'currentDashboardId' => $this->currentDashboardId,
             ]))
@@ -726,62 +792,5 @@ abstract class DynamicDashboard extends Page
         }
 
         return $this->currentDashboard;
-    }
-
-    /**
-     * Check if a widget is available for the current dashboard page.
-     *
-     * @param  class-string<DynamicWidget>  $widgetClass
-     */
-    protected function isWidgetAvailableForDashboard(string $widgetClass): bool
-    {
-        if (! class_exists($widgetClass) || ! $widgetClass::canView()) {
-            return false;
-        }
-        // Check if the widget has the availableForDashboard method
-        if (method_exists($widgetClass, 'availableForDashboard')) {
-            $allowedDashboards = $widgetClass::availableForDashboard();
-            // Empty array means available for all dashboards
-            if (empty($allowedDashboards)) {
-                return true;
-            }
-
-            // Check if current dashboard page class is in the allowed list
-            return in_array(static::class, $allowedDashboards, true);
-        }
-
-        return true; // No restriction, available for all
-    }
-
-    /**
-     * Determine if the current user can view this dashboard.
-     *
-     * Editors always have access. Otherwise, Spatie roles are checked when
-     * the model supports them, falling back to the page-level `canAccess()`.
-     */
-    public static function canDisplay(DynamicDashboardModel $dashboard): bool
-    {
-        if (static::canEdit()) {
-            return true;
-        }
-
-        if (method_exists($dashboard, 'roles') && $dashboard->roles->isNotEmpty()) {
-            $user = auth()->user();
-
-            if (! $user || ! method_exists($user, 'hasAnyRole') || ! $user->hasAnyRole($dashboard->roles)) {
-                return false;
-            }
-        }
-
-        return static::canAccess();
-    }
-
-    /**
-     * Determine if the current user can edit dashboards and widgets.
-     * Override in subclasses to restrict editing.
-     */
-    public static function canEdit(): bool
-    {
-        return true;
     }
 }
