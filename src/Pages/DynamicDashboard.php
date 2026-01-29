@@ -517,6 +517,7 @@ abstract class DynamicDashboard extends Page
         $displayTitle = $widgetModel->getDisplayTitle();
 
         return ViewComponent::make('filament-dynamic-dashboard::schemas.widget-wrapper')
+            ->key('widget-wrapper-' . $widgetId)
             ->viewData([
                 'name' => $name,
                 'displayTitle' => $displayTitle,
