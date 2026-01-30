@@ -265,6 +265,30 @@ An empty array (or omitting the method entirely) means the widget is available o
 
 Filament's `canView()` method is respected automatically. If `canView()` returns `false`, the widget is hidden from the type selector and not rendered on the dashboard.
 
+### Accessing Widget Metadata
+
+Widgets can access their own ID and title by declaring public properties. The dashboard will automatically inject these values:
+
+```php
+class MyWidget extends StatsOverviewWidget implements DynamicWidget
+{
+    use InteractsWithPageFilters;
+
+    public int $dynamicDashboardWidgetId;
+    public string $dynamicDashboardWidgetTitle;
+
+    protected function getStats(): array
+    {
+        // Use $this->dynamicDashboardWidgetId or $this->dynamicDashboardWidgetTitle
+        return [/* ... */];
+    }
+
+    // ... other methods
+}
+```
+
+Both properties are optional — declare only the ones you need.
+
 ## Managing Filters
 
 ### Defining Filters

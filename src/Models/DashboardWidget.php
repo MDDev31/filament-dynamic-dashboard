@@ -98,7 +98,12 @@ class DashboardWidget extends Model implements DynamicDashboardWidgetModel
     {
         $widget = null;
         if (class_exists($this->type) && is_subclass_of($this->type, DynamicWidget::class)) {
-            $widget = $this->type::make(['columnSpan' => $this->columns, ...$this->settings ?? []]);
+            $widget = $this->type::make([
+                'dynamicDashboardWidgetId'=>$this->getId(),
+                'dynamicDashboardWidgetTitle'=>$this->getName(),
+                'columnSpan' => $this->columns,
+                ...$this->settings ?? []
+            ]);
         }
 
         return $widget;
