@@ -6,6 +6,31 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.2.2] - 2025-01-30
+
+### Added
+- `widgetsGrid()` method to customize the dashboard grid layout
+
+## [0.2.1] - 2025-01-29
+
+### Fixed
+- Add a unique key for the widget wrapper
+
+## [0.2.0] - 2025-01-29
+
+### Fixed
+- Update the widget wrapper to avoid Livewire bad request
+
+### Added
+- Placeholder translation to select a widget
+
+## [0.1.1] - 2025-01-28
+
+### Fixed
+- Correct a bug when no dashboard exists
+
+## [0.1.0] - 2025-01-27
+
 ### Added
 - Initial release
 - Dynamic dashboard page (`DynamicDashboard`) extending Filament `Page`

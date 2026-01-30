@@ -3,6 +3,7 @@
 namespace MDDev\DynamicDashboard\Pages;
 
 use BackedEnum;
+use Closure;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
 use Filament\Forms\Components\Field;
@@ -319,8 +320,18 @@ abstract class DynamicDashboard extends Page
             return $this->wrapWidget($pair['model'], $livewireComponents[$index]);
         })->all();
 
-        return Grid::make($this->getColumns())->schema($widgetSchemas)->dense();
+        return $this->widgetsGrid($widgetSchemas);
     }
+
+    /**
+     *  Allow to override the grid layout to render widgets
+     * @param  array<Component | Action | ActionGroup | string | Htmlable> | Closure  $widgetSchemas
+     */
+    public function widgetsGrid(array | Closure $widgetSchemas): Component
+    {
+        return Grid::make($this->getColumns())->schema($widgetSchemas);
+    }
+
 
     /**
      * Get widgets for the current dashboard.

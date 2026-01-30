@@ -94,8 +94,23 @@ class Dashboard extends DynamicDashboard
 | `getDefaultFilterSchema()` | `static array` | Return custom fields for editing default filter values (keyed by filter name) |
 | `resolveFilterDefaults()`  | `static array` | Transform stored defaults into actual filter values at apply time             |
 | `getColumns()`             | `int\|array`   | Grid columns for the widget layout (defaults to config)                       |
+| `widgetsGrid()`            | `Component`    | Override the grid layout used to render widgets                               |
 | `canEdit()`                | `static bool`  | Whether the current user can add/edit/delete widgets and manage dashboards    |
 | `canDisplay()`             | `static bool`  | Whether the current user can view a specific dashboard                        |
+
+### Custom Widget Grid Layout
+
+By default, widgets are rendered in a responsive `Grid` component. You can override `widgetsGrid()` to use a different layout:
+
+```php
+use Filament\Schemas\Components\Component;
+use Filament\Schemas\Components\Flex;
+
+public function widgetsGrid(array | Closure $widgetSchemas): Component
+{
+    return Flex::make($widgetSchemas)->wrap();
+}
+```
 
 ## Creating a Dynamic Widget
 
