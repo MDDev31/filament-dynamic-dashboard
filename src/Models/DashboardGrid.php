@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Str;
+use MDDev\DynamicDashboard\DashboardModelHelper;
 
 /**
  * Eloquent model representing a dashboard grid layout.
@@ -122,7 +123,7 @@ class DashboardGrid extends Model
      */
     public function dashboards(): HasMany
     {
-        return $this->hasMany(Dashboard::class, 'dashboard_grid_id');
+        return $this->hasMany(DashboardModelHelper::model(), 'dashboard_grid_id');
     }
 
     /**
