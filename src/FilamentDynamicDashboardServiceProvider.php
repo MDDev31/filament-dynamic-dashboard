@@ -4,8 +4,6 @@ namespace MDDev\DynamicDashboard;
 
 use Livewire\Livewire;
 use MDDev\DynamicDashboard\Livewire\DashboardManager;
-use MDDev\DynamicDashboard\Models\Dashboard;
-use MDDev\DynamicDashboard\Models\DashboardWithRoles;
 use Spatie\LaravelPackageTools\Package;
 use Spatie\LaravelPackageTools\PackageServiceProvider;
 
@@ -36,24 +34,21 @@ class FilamentDynamicDashboardServiceProvider extends PackageServiceProvider
     }
 
     /**
-     * Boots the package, registers Blade/Livewire components, and performs the Spatie model swap.
-     *
-     * When `use_spatie_permissions` is enabled and no custom Dashboard model is configured,
-     * the default Dashboard model is replaced with DashboardWithRoles so that role-based
-     * visibility works out of the box.
+     * Boots the package and registers Blade/Livewire components.
      */
     public function packageBooted(): void
     {
-        parent::packageBooted();
-
-        Livewire::component('filament-dynamic-dashboard::dashboard-manager', DashboardManager::class);
-
-        if (config('filament-dynamic-dashboard.use_spatie_permissions', false)) {
-            $configuredModel = config('filament-dynamic-dashboard.models.dashboard');
-
-            if ($configuredModel === Dashboard::class || $configuredModel === null) {
-                config(['filament-dynamic-dashboard.models.dashboard' => DashboardWithRoles::class]);
-            }
+        // Livewire 4 uses addNamespace for namespaced components
+        // Livewire 3 uses the component() method
+        if (method_exists(app('livewire'), 'addNamespace')) {
+            Livewire::addNamespace(
+                namespace: 'filament-dynamic-dashboard',
+                classNamespace: 'MDDev\\DynamicDashboard\\Livewire',
+                classPath: __DIR__.'/Livewire',
+                classViewPath: __DIR__.'/../resources/views/livewire',
+            );
+        } else {
+            Livewire::component('filament-dynamic-dashboard::dashboard-manager', DashboardManager::class);
         }
     }
 }

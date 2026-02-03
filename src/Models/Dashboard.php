@@ -4,22 +4,32 @@ namespace MDDev\DynamicDashboard\Models;
 
 use Illuminate\Database\Eloquent\Attributes\Scope;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use MDDev\DynamicDashboard\Database\Factories\DashboardFactory;
-use MDDev\DynamicDashboard\DynamicDashboardHelper;
-use MDDev\DynamicDashboard\Models\Contracts\DynamicDashboardModel;
-use MDDev\DynamicDashboard\Models\Contracts\DynamicDashboardWidgetModel;
 
 /**
  * Default Eloquent implementation of a dynamic dashboard.
  *
  * @see DashboardWithRoles for the Spatie-enabled variant
+ *
+ * @property int $id
+ * @property string $name
+ * @property string|null $description
+ * @property string|null $page
+ * @property bool $is_active
+ * @property bool $is_locked
+ * @property int $ordering
+ * @property int $columns
+ * @property array $settings
+ * @property array $filters
+ * @property array $display_filters
+ * @property int|null $dashboard_grid_id
+ * @property-read DashboardGrid|null $effective_grid
  */
-class Dashboard extends Model implements DynamicDashboardModel
+class Dashboard extends Model
 {
-    use HasFactory;
 
     protected $table = 'dashboards';
 
@@ -39,6 +49,17 @@ class Dashboard extends Model implements DynamicDashboardModel
         'settings',
         'filters',
         'display_filters',
+        'dashboard_grid_id',
+    ];
+
+    /**
+     * Default attribute values
+     *
+     * @var array<string, mixed>
+     */
+    protected $attributes = [
+        'filters' => '[]',
+        'display_filters' => '[]',
     ];
 
     /**
@@ -54,12 +75,8 @@ class Dashboard extends Model implements DynamicDashboardModel
         'settings' => 'array',
         'filters' => 'array',
         'display_filters' => 'array',
+        'dashboard_grid_id' => 'integer',
     ];
-
-    protected static function newFactory(): DashboardFactory
-    {
-        return DashboardFactory::new();
-    }
 
     /**
      * Auto-assign ordering on creation so new dashboards appear last.
@@ -76,23 +93,31 @@ class Dashboard extends Model implements DynamicDashboardModel
     /**
      * Get the widgets for this dashboard.
      *
-     * The explicit 'dashboard_id' foreign key is required because the related model
-     * is resolved at runtime via config, so Laravel cannot infer it from the class name.
-     *
-     * @return HasMany<DynamicDashboardWidgetModel, $this>
+     * @return HasMany<DashboardWidget, $this>
      */
     public function widgets(): HasMany
     {
-        return $this->hasMany(DynamicDashboardHelper::WidgetModel(), 'dashboard_id')->orderBy('ordering');
+        return $this->hasMany(DashboardWidget::class, 'dashboard_id')->orderBy('ordering');
     }
 
-    /** {@inheritDoc} */
-    public function getName(): string
+    /**
+     * Get the grid assigned to this dashboard.
+     *
+     * @return BelongsTo<DashboardGrid, $this>
+     */
+    public function grid(): BelongsTo
     {
-        return $this->name;
+        return $this->belongsTo(DashboardGrid::class, 'dashboard_grid_id');
     }
 
-    /** {@inheritDoc} */
+    /**
+     * Get filter visibility settings.
+     *
+     * When $filterName is provided, returns whether that specific filter should be displayed.
+     * When omitted, returns the full visibility map.
+     *
+     * @return bool|array<string>
+     */
     public function getDisplayFilters(?string $filterName = null): array|bool
     {
         if (isset($filterName)) {
@@ -103,28 +128,17 @@ class Dashboard extends Model implements DynamicDashboardModel
         return $this->display_filters ?? [];
     }
 
-    /** {@inheritDoc} */
-    public function getFilters(): array
+    /**
+     * Get the effective grid for this dashboard.
+     * Returns the assigned grid or the default grid if none assigned.
+     */
+    protected function effectiveGrid(): Attribute
     {
-        return $this->filters ?? [];
-    }
-
-    /** {@inheritDoc} */
-    public function getDescription(): ?string
-    {
-        return $this->description;
-    }
-
-    /** {@inheritDoc} */
-    public function getId(): int
-    {
-        return $this->id;
-    }
-
-    /** {@inheritDoc} */
-    public function isLocked(): bool
-    {
-        return $this->is_locked;
+        return Attribute::make(
+            get: fn () => $this->dashboard_grid_id
+                ? $this->grid
+                : DashboardGrid::default()->first()
+        );
     }
 
     /**

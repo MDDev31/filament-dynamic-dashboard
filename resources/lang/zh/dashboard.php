@@ -25,6 +25,57 @@ return [
     'cannot_deactivate_current' => '无法停用当前仪表板',
     'cannot_deactivate_last' => '无法停用最后一个启用的仪表板',
 
+    // Manager tabs
+    'tab_manage_dashboards' => '仪表板',
+    'tab_manage_grids' => '模板',
+
+    // Grid management
+    'grid' => '模板',
+    'grid_name' => '模板名称',
+    'grid_columns' => '模板列',
+    'blocks' => '区块',
+    'blocks_count' => '区块',
+    'default' => '默认',
+    'add_new_grid' => '添加新模板',
+    'edit_grid' => '编辑模板',
+    'delete_grid' => '删除模板',
+    'delete_grid_confirmation' => '您确定要删除此模板吗？',
+    'cannot_delete_grid_in_use' => '无法删除仪表板正在使用的模板',
+    'cannot_delete_default_grid' => '无法删除默认模板',
+
+    // Block management
+    'block' => '区块',
+    'block_name' => '区块名称',
+    'block_columns' => '区块大小',
+    'column_1' => '极小 (1/12)',
+    'column_2' => '小 (1/6)',
+    'column_3' => '四分之一 (1/4)',
+    'column_4' => '三分之一 (1/3)',
+    'column_5' => '窄 (5/12)',
+    'column_6' => '一半 (1/2)',
+    'column_7' => '宽 (7/12)',
+    'column_8' => '三分之二 (2/3)',
+    'column_9' => '四分之三 (3/4)',
+    'column_10' => '大 (5/6)',
+    'column_11' => '超大 (11/12)',
+    'column_12' => '全宽',
+    'add_block' => '添加区块',
+    'add_child_block' => '在 :parent_block_name 中添加区块',
+    'cannot_delete_block_with_widgets' => '无法删除包含小组件的区块',
+    'block_includes_unassigned' => '包含未分配位置的小组件',
+    'no_widgets_in_block' => '此区块中没有小组件',
+    'display_empty' => '即使没有分配小组件也显示位置',
+
+    // Widget block assignment
+    'widget_position' => '位置',
+    'widget_block_placeholder' => '使用第一个区块',
+
+    // Widget ordering
+    'widget_order' => '顺序',
+    'order_first_position' => '在第一位置',
+    'order_last_position' => '在最后位置',
+    'order_after' => "在 ':name' 之后",
+
     // Widget Add
     'add_widget' => '小组件',
     'add_button' => '添加',
@@ -45,5 +96,9 @@ return [
 
     // Filters
     'reset_filters' => '重置',
+
+    // Preview
+    'preview_grid' => '预览',
+    'close' => '关闭',
 
 ];

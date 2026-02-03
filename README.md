@@ -35,25 +35,15 @@ php artisan migrate
 
 ### Vite / Tailwind CSS compatibility
 
-This package uses Tailwind CSS classes in its Blade views. For these styles to be compiled correctly, Tailwind must be able to scan the package views. You have two options:
-
-**Option A — Publish the views** (recommended if you plan to customize them):
-
-```bash
-php artisan vendor:publish --tag=filament-dynamic-dashboard-views
-```
-
-The views will be copied to `resources/views/vendor/filament-dynamic-dashboard/`.
-
-**Option B — Reference the package path in your theme CSS** (no file duplication):
+This package uses Tailwind CSS classes in its Blade views. For these styles to be compiled correctly, Tailwind must be able to scan the package views.
 
 In your Filament theme file (e.g. `resources/css/filament/admin/theme.css`), add the following `@source` directive:
+(if theme.css doesn't exist, see [filament documentation](https://filamentphp.com/docs/5.x/styling/overview#creating-a-custom-theme)
 
 ```css
 @source '../../../../vendor/mddev31/filament-dynamic-dashboard/resources/views/**/*';
 ```
 
-> **Note:** One of these two options is required. Without it, Tailwind will not detect the utility classes used by the package and some styles will be missing.
 
 Optionally publish the configuration file:
 
@@ -80,9 +70,7 @@ use MDDev\DynamicDashboard\Pages\DynamicDashboard;
 
 class Dashboard extends DynamicDashboard
 {
-    protected static ?string $navigationIcon = 'heroicon-o-home';
-
-    protected static ?string $slug = '/';
+   
 }
 ```
 
@@ -97,20 +85,6 @@ class Dashboard extends DynamicDashboard
 | `widgetsGrid()`            | `Component`    | Override the grid layout used to render widgets                               |
 | `canEdit()`                | `static bool`  | Whether the current user can add/edit/delete widgets and manage dashboards    |
 | `canDisplay()`             | `static bool`  | Whether the current user can view a specific dashboard                        |
-
-### Custom Widget Grid Layout
-
-By default, widgets are rendered in a responsive `Grid` component. You can override `widgetsGrid()` to use a different layout:
-
-```php
-use Filament\Schemas\Components\Component;
-use Filament\Schemas\Components\Flex;
-
-public function widgetsGrid(array | Closure $widgetSchemas): Component
-{
-    return Flex::make($widgetSchemas)->wrap();
-}
-```
 
 ## Creating a Dynamic Widget
 
@@ -289,6 +263,26 @@ class MyWidget extends StatsOverviewWidget implements DynamicWidget
 
 Both properties are optional — declare only the ones you need.
 
+## Templates
+
+Templates define reusable layout structures for your dashboards. Each template contains **positions** where widgets can be placed.
+
+### How Templates Work
+
+- A **Template** is a layout structure that can be shared across multiple dashboards
+- **Positions** are areas within the template where widgets are rendered
+- Positions can be nested up to 3 levels deep for complex layouts
+- Each position spans between 1 and 12 columns in a responsive 12-column grid
+
+### Automatic Defaults
+
+The system simplifies the UI by hiding unnecessary selectors:
+
+- **Template selector**: Only shown when 2 or more templates exist. If only one template exists, it is used automatically.
+- **Position selector**: Only shown when the template has multiple positions. If only one position exists, widgets are automatically assigned to it.
+
+This means for simple setups with a single template and single position, users only need to select their widget type — no extra configuration required.
+
 ## Managing Filters
 
 ### Defining Filters
@@ -397,33 +391,55 @@ A dropdown button in the page header lets users switch between dashboards. The c
 
 The **Add Widget** button (visible to editors on unlocked dashboards) opens a modal with:
 - **Title** -- display name for the widget
+- **Display title** -- toggle to show/hide the title badge above the widget
 - **Widget Type** -- dropdown of all available `DynamicWidget` implementations
 - **Size** -- slider from 1 to 12 grid columns (XS to XL)
-- **Display title** -- toggle to show/hide the title badge above the widget
+- **Position** -- select where the widget appears in the template layout (only visible when multiple positions exist)
+- **Order** -- choose the widget's position relative to others (visible only when multiple widgets are present in this area)
 - **Widget Settings** -- dynamic form section showing the selected widget's `getSettingsFormSchema()`
 
 ### Widget Wrapper
 
 Each widget is wrapped with a hover overlay revealing edit and delete icon buttons. When **Display title** is enabled, a title badge is shown above the widget.
 
-### Manage Dashboards (Slideover)
+### Dashboard Manager (Slideover)
 
-The slideover contains a reorderable table of all dashboards with:
-- **Active** toggle -- enable/disable dashboards (cannot deactivate the last active or the current dashboard)
-- **Locked** toggle -- prevent widget modifications on the dashboard
+The dashboard manager slideover contains two tabs: **Dashboards** and **Templates**.
+
+#### Dashboards Tab
+
+A reorderable table of all dashboards with:
+- **Active** toggle -- enable/disable dashboards
+- **Locked** toggle -- prevent widget modifications
 - **Edit** action -- opens a tabbed modal:
-  - **General** -- name, rich-text description, roles (if Spatie is enabled)
+  - **General** -- name, description, template (if multiple exist), roles (if Spatie enabled)
   - **Widgets** -- reorderable list of widgets
   - **Visible filters** -- toggles per filter field
-  - **Default values** -- set default filter values for this dashboard
-- **Duplicate** action -- deep-copies the dashboard and all its widgets
-- **Delete** action -- removes the dashboard (hidden for the current and last active dashboard)
+  - **Default values** -- set default filter values
+- **Duplicate** action -- deep-copies the dashboard with all widgets
+- **Delete** action -- removes the dashboard
+
+#### Templates Tab
+
+Manage layout templates with:
+- **Preview** action -- visual representation of the template structure with color-coded positions
+- **Edit** action -- modify template name and positions:
+  - Each position has a **Name** and **Size** (Tiny to Full width)
+  - Add nested positions (up to 3 levels)
+  - Positions with linked widgets cannot be deleted
+- **Duplicate** action -- copy template with all positions
+- **Delete** action -- remove template (protected if in use or is default)
+
+Only one template can be marked as **Default** at a time.
 
 ### Safety Guards
 
 - Cannot deactivate or delete the last remaining active dashboard
 - Cannot delete the currently viewed dashboard
 - Locked dashboards hide the add/edit/delete widget buttons
+- Cannot delete the default template
+- Cannot delete a template in use by dashboards
+- Cannot delete positions that have widgets linked to them
 
 ## Permissions & Authorization
 
@@ -459,7 +475,7 @@ public static function canDisplay(DynamicDashboardModel $dashboard): bool
 
 ### Spatie Permission Integration
 
-1. Set `use_spatie_permissions` to `true` in the config (enabled by default)
+1. Set `use_spatie_permissions` to `true` in the config 
 2. The `DashboardWithRoles` model is automatically swapped in (adds the `HasRoles` trait)
 3. A **Roles** multi-select appears in the dashboard manager form
 4. `canDisplay()` checks `user->hasAnyRole(dashboard->roles)` when roles are assigned
@@ -472,51 +488,11 @@ Publish the config file:
 php artisan vendor:publish --tag=filament-dynamic-dashboard-config
 ```
 
-| Key                      | Type     | Default                              | Description                                                     |
-|--------------------------|----------|--------------------------------------|-----------------------------------------------------------------|
-| `dashboard_columns`      | `array`  | `['sm' => 3, 'md' => 6, 'lg' => 12]` | Responsive grid breakpoints for the dashboard layout            |
-| `widget_columns`         | `int`    | `3`                                  | Default grid column span for new widgets                        |
-| `use_spatie_permissions` | `bool`   | `false`                              | Enable Spatie role integration (auto-swaps the Dashboard model) |
-| `models.dashboard`       | `string` | `Dashboard::class`                   | Eloquent model implementing `DynamicDashboardModel`             |
-| `models.widget`          | `string` | `DashboardWidget::class`             | Eloquent model implementing `DynamicDashboardWidgetModel`       |
-
-Full config file:
-
-```php
-return [
-    'dashboard_columns' => ['sm' => 3, 'md' => 6, 'lg' => 12],
-    'widget_columns' => 3,
-    'use_spatie_permissions' => false,
-    'models' => [
-        'dashboard' => \MDDev\DynamicDashboard\Models\Dashboard::class,
-        'widget' => \MDDev\DynamicDashboard\Models\DashboardWidget::class,
-    ],
-];
-```
-
-## Customizing Models
-
-Create a model implementing `DynamicDashboardModel` (or `DynamicDashboardWidgetModel`) and set it in the config:
-
-```php
-namespace App\Models;
-
-use MDDev\DynamicDashboard\Models\Dashboard as BaseDashboard;
-
-class CustomDashboard extends BaseDashboard
-{
-    // Add custom logic, scopes, relationships...
-}
-```
-
-```php
-// config/filament-dynamic-dashboard.php
-'models' => [
-    'dashboard' => \App\Models\CustomDashboard::class,
-],
-```
-
-The helper `DynamicDashboardHelper::DashboardModel()` resolves the configured model class at runtime.
+| Key                      | Type    | Default                              | Description                                          |
+|--------------------------|---------|--------------------------------------|------------------------------------------------------|
+| `dashboard_columns`      | `array` | `['sm' => 3, 'md' => 6, 'lg' => 12]` | Responsive grid breakpoints for the dashboard layout |
+| `widget_columns`         | `int`   | `3`                                  | Default grid column span for new widgets             |
+| `use_spatie_permissions` | `bool`  | `false`                              | Enable Spatie role integration                       |
 
 ## Translations
 

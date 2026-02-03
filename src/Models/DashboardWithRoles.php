@@ -7,9 +7,9 @@ use Spatie\Permission\Traits\HasRoles;
 /**
  * Spatie Permission-enabled dashboard variant.
  *
- * Automatically swapped in by the ServiceProvider when
- * `filament-dynamic-dashboard.use_spatie_permissions` is true
- * and no custom model is configured.
+ * Extends the base Dashboard model with role-based visibility.
+ * Use this model by extending it in your application when
+ * `filament-dynamic-dashboard.use_spatie_permissions` is true.
  */
 class DashboardWithRoles extends Dashboard
 {

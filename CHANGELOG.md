@@ -2,26 +2,29 @@
 
 All notable changes to `filament-dynamic-dashboard` will be documented in this file.
 
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
+## [0.3] - 2026-01-30
 
-## [Unreleased]
+### Added
+- Dashboard can have now a specific grid. 
+- New interface to build a grid template
+- Add the Livewire 4 compatibility
 
-## [0.2.3] - 2025-01-30
+## [0.2.3] - 2026-01-30
 
 ### Added
 - Widget access to metadata via `$dynamicDashboardWidgetId` and `$dynamicDashboardWidgetTitle` properties
 
-## [0.2.2] - 2025-01-30
+## [0.2.2] - 2026-01-30
 
 ### Added
 - `widgetsGrid()` method to customize the dashboard grid layout
 
-## [0.2.1] - 2025-01-29
+## [0.2.1] - 2026-01-29
 
 ### Fixed
 - Add a unique key for the widget wrapper
 
-## [0.2.0] - 2025-01-29
+## [0.2.0] - 2026-01-29
 
 ### Fixed
 - Update the widget wrapper to avoid Livewire bad request
@@ -29,12 +32,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Added
 - Placeholder translation to select a widget
 
-## [0.1.1] - 2025-01-28
+## [0.1.1] - 2026-01-28
 
 ### Fixed
 - Correct a bug when no dashboard exists
 
-## [0.1.0] - 2025-01-27
+## [0.1.0] - 2026-01-27
 
 ### Added
 - Initial release

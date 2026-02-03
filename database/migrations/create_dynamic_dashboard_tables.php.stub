@@ -5,15 +5,45 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
-return new class extends Migration
-{
+return new class extends Migration {
     /**
      * Run the migrations.
      */
     public function up(): void
     {
+        Schema::create('dashboard_grids', function (Blueprint $table) {
+            $table->id();
+            $table->string('name');
+            $table->string('slug')->unique();
+            $table->integer('columns')->default(12);
+            $table->boolean('is_default')->default(false);
+            $table->timestamps();
+
+            $table->index('is_default', 'idx_dashboard_grids_is_default');
+            $table->index('slug', 'idx_dashboard_grids_slug');
+        });
+
+        Schema::create('dashboard_grid_blocks', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('dashboard_grid_id')->constrained('dashboard_grids')->cascadeOnDelete();
+            $table->foreignId('parent_id')->nullable()->constrained('dashboard_grid_blocks')->cascadeOnDelete();
+            $table->string('name');
+            $table->string('slug');
+            $table->integer('columns')->default(12);
+            $table->boolean('display_empty')->default(false);
+            $table->integer('ordering')->default(0);
+            $table->timestamps();
+
+            $table->unique(['dashboard_grid_id', 'slug'], 'uniq_grid_blocks_grid_slug');
+            $table->index('dashboard_grid_id', 'idx_grid_blocks_grid_id');
+            $table->index('parent_id', 'idx_grid_blocks_parent_id');
+            $table->index('ordering', 'idx_grid_blocks_ordering');
+        });
+
         Schema::create('dashboards', function (Blueprint $table) {
             $table->id();
+            $table->foreignId('dashboard_grid_id')->nullable()->after('id')
+                ->constrained('dashboard_grids')->nullOnDelete();
             $table->string('name');
             $table->text('description')->nullable();
             $table->string('page')->nullable();
@@ -32,6 +62,8 @@ return new class extends Migration
         Schema::create('dashboard_widgets', function (Blueprint $table) {
             $table->id();
             $table->foreignId('dashboard_id')->constrained('dashboards')->cascadeOnDelete();
+            $table->foreignId('dashboard_grid_block_id')->nullable()->after('dashboard_id')
+                ->constrained('dashboard_grid_blocks')->nullOnDelete();
             $table->string('name');
             $table->text('description')->nullable();
             $table->string('type');
@@ -47,6 +79,44 @@ return new class extends Migration
             $table->index('ordering', 'idx_dashboard_widgets_ordering');
             $table->index('type', 'idx_dashboard_widgets_type');
         });
+
+        // Create default grid
+        $gridId = DB::table('dashboard_grids')->insertGetId([
+            'name' => 'Default Template',
+            'slug' => 'default-template',
+            'columns' => 12,
+            'is_default' => true,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        // Create default block for the default grid
+        DB::table('dashboard_grid_blocks')->insert([
+            'dashboard_grid_id' => $gridId,
+            'parent_id' => null,
+            'name' => 'Main block',
+            'slug' => 'main-block',
+            'columns' => 12,
+            'ordering' => 0,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        // Create default dashboard only if no dashboards exist (new installation)
+        DB::table('dashboards')->insert([
+            'name' => 'Default Dashboard',
+            'description' => null,
+            'page' => null,
+            'ordering' => 0,
+            'is_active' => true,
+            'is_locked' => false,
+            'dashboard_grid_id' => $gridId,
+            'settings' => null,
+            'filters' => null,
+            'display_filters' => null,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
     }
 
     /**
@@ -56,5 +126,7 @@ return new class extends Migration
     {
         Schema::dropIfExists('dashboard_widgets');
         Schema::dropIfExists('dashboards');
+        Schema::dropIfExists('dashboard_grid_blocks');
+        Schema::dropIfExists('dashboard_grids');
     }
 };
