@@ -76,11 +76,6 @@ abstract class DynamicDashboard extends Page
     public ?Dashboard $currentDashboard = null;
 
     /**
-     * Widget ID being edited/deleted (for action context).
-     */
-    public ?int $actionWidgetId = null;
-
-    /**
      * Define custom form components for editing default filter values.
      * Return a keyed array ['filterName' => Component].
      * Filters not in this array will use the original component from getDashboardFilters().
@@ -435,7 +430,7 @@ abstract class DynamicDashboard extends Page
                         ->action(function (array $data) use ($widgetId): void {
                             abort_unless(static::canEdit(), 403);
                             $widget = DashboardWidget::find($widgetId);
-                            $blockId = $data['dashboard_grid_block_id'] ?? null;
+                            $blockId = $data['dashboard_grid_block_id'] ?? $widget->effective_grid_block?->id;
                             $ordering = $this->calculateOrdering($blockId, $data['ordering_after'] ?? null);
                             $widget?->update([
                                 'name' => $data['name'],
@@ -681,7 +676,7 @@ abstract class DynamicDashboard extends Page
     {
         $widgets = DashboardWidget::query()->forDashboardAndBlock(
             $this->currentDashboardId,
-            $blockId,
+            $blockId??$this->getCurrentDashboard()?->effective_grid?->rootBlocks?->first()?->id,
             $excludeWidgetId
         )->get();
 
@@ -708,7 +703,7 @@ abstract class DynamicDashboard extends Page
     {
         return DashboardWidget::query()->forDashboardAndBlock(
             $this->currentDashboardId,
-            $blockId,
+            $blockId??$this->getCurrentDashboard()?->effective_grid?->rootBlocks?->first()?->id,
             $excludeWidgetId
         )->exists();
     }
@@ -965,89 +960,12 @@ abstract class DynamicDashboard extends Page
     }
 
     /**
-     * Open edit widget modal.
-     */
-    public function openEditWidgetModal(int $widgetId): void
-    {
-        $this->actionWidgetId = $widgetId;
-        $this->mountAction('editWidget');
-    }
-
-    /**
-     * Open delete widget confirmation.
-     */
-    public function openDeleteWidgetModal(int $widgetId): void
-    {
-        $this->actionWidgetId = $widgetId;
-        $this->mountAction('deleteWidget');
-    }
-
-    /**
-     * Create the edit widget action (used by openEditWidgetModal).
-     *
-     * @deprecated Use inline actions in wrapWidget() instead
-     */
-    public function editWidgetAction(): Action
-    {
-        return Action::make('editWidget')
-            ->icon(Heroicon::PencilSquare)
-            ->iconButton()
-            ->size('xs')
-            ->color('gray')
-            ->modalHeading(__('filament-dynamic-dashboard::dashboard.edit_widget'))
-            ->modalWidth(Width::FourExtraLarge)
-            ->fillForm(function (): array {
-                $widget = DashboardWidget::find($this->actionWidgetId);
-
-                return [
-                    'name' => $widget?->name,
-                    'type' => $widget?->type,
-                    'columns' => $widget?->columns,
-                    'settings' => $widget?->settings,
-                ];
-            })
-            ->schema(fn(Schema $schema): Schema => $this->getWidgetFormSchema($schema))
-            ->action(function (array $data): void {
-                $widget = DashboardWidget::find($this->actionWidgetId);
-                $widget?->update([
-                    'name' => $data['name'],
-                    'type' => $data['type'],
-                    'columns' => $data['columns'] ?? config('filament-dynamic-dashboard.widget_columns', 3),
-                    'settings' => $data['settings'] ?? [],
-                ]);
-                $this->redirect(static::getUrl(), navigate: true);
-            });
-    }
-
-    /**
-     * Create the delete widget action (used by openDeleteWidgetModal).
-     *
-     * @deprecated Use inline actions in wrapWidget() instead
-     */
-    public function deleteWidgetAction(): Action
-    {
-        return Action::make('deleteWidget')
-            ->icon(Heroicon::Trash)
-            ->iconButton()
-            ->size('xs')
-            ->color('danger')
-            ->requiresConfirmation()
-            ->modalHeading(__('filament-dynamic-dashboard::dashboard.delete_widget'))
-            ->modalDescription(__('filament-dynamic-dashboard::dashboard.delete_widget_confirmation'))
-            ->action(function (): void {
-                $widget = DashboardWidget::find($this->actionWidgetId);
-                $widget?->delete();
-                $this->redirect(static::getUrl(), navigate: true);
-            });
-    }
-
-    /**
      * Handle dashboard list changed event from DashboardManager component.
      */
     #[On('dashboard-list-changed')]
     public function onDashboardListChanged(): void
     {
-        // Reload dashboard data to update heading/subheading
+        // Reload dashboard data to update heading/subheadin
         $this->loadCurrentDashboard();
     }
 
@@ -1096,7 +1014,7 @@ abstract class DynamicDashboard extends Page
      */
     protected function createWidget(array $data): void
     {
-        $blockId = $data['dashboard_grid_block_id'] ?? null;
+        $blockId = $data['dashboard_grid_block_id'] ?? $this->getCurrentDashboard()?->effective_grid?->rootBlocks?->first()->id;
         $ordering = $this->calculateOrdering($blockId, $data['ordering_after'] ?? null);
 
         DashboardWidget::create([
