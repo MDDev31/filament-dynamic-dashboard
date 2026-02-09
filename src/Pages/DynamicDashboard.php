@@ -539,7 +539,7 @@ abstract class DynamicDashboard extends Page
                                         ->label(__('filament-dynamic-dashboard::dashboard.widget_position'))
                                         ->options(fn(): array => $this->getBlockOptions())
                                         ->selectablePlaceholder(false)
-                                        ->visible(fn(): bool => $this->hasMultipleBlocks())
+                                        //->visible(fn(): bool => $this->hasMultipleBlocks())
                                         ->live()
                                         ->afterStateUpdated(fn(Set $set) => $set('ordering_after', null)),
 
@@ -549,11 +549,10 @@ abstract class DynamicDashboard extends Page
                                             $get('dashboard_grid_block_id'),
                                             $get('widget_id')
                                         ))
-                                        ->visible(fn(Get $get): bool =>
-                                            $this->hasOtherWidgetsInBlock($get('dashboard_grid_block_id'), $get('widget_id')))
+                                        //->visible(fn(Get $get): bool =>
+                                        //    $this->hasOtherWidgetsInBlock($get('dashboard_grid_block_id'), $get('widget_id')))
                                         ->default(-1)
-                                        ->selectablePlaceholder(false)
-                                        ->live(),
+                                        ->selectablePlaceholder(false),
                                 ])->dense(),
                             ])
                             ->columns(1)
