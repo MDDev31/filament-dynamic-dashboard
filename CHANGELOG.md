@@ -2,6 +2,30 @@
 
 All notable changes to `filament-dynamic-dashboard` will be documented in this file.
 
+## [0.3.4] - 2026-02-17
+
+### Fixed
+- Fix migration error issue
+
+### Added
+- Turkish language support (`tr`)
+- New translation key for dashboard heading modal
+
+## [0.3.3] - 2026-02-10
+
+### Fixed
+- Temporarily disable dynamic display on widgets position and ordering
+
+## [0.3.2] - 2026-02-03
+
+### Fixed
+- Correct a bug to display correctly the ordering widget field on a grid with only one block
+
+## [0.3.1] - 2026-02-03
+
+### Fixed
+- Correct a bug for Spatie Permission integration
+
 ## [0.3] - 2026-01-30
 
 ### Added

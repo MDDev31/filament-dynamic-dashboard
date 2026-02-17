@@ -11,6 +11,8 @@ User-configurable dashboards for Filament v4+.
 
 Filament Dynamic Dashboard lets end-users create, switch, and manage multiple dashboards directly from the Filament UI. Widgets are added, removed, and reordered per dashboard without any code changes. Each dashboard supports its own filters, default values, and per-filter visibility settings. Optional Spatie Permission integration provides role-based dashboard visibility out of the box.
 
+![Global Dashboard](https://raw.githubusercontent.com/MDDev31/filament-dynamic-dashboard/master/doc/img/global-dashboard.jpg)
+
 ## Requirements
 
 - PHP >= 8.3
@@ -387,6 +389,8 @@ The filter bar includes a reset button. Clicking it calls `resetFilters()`, whic
 
 A dropdown button in the page header lets users switch between dashboards. The current dashboard is highlighted with a check icon. An additional **Manage dashboards** entry (visible to editors) opens the management slideover.
 
+![Dashboard Switcher](https://raw.githubusercontent.com/MDDev31/filament-dynamic-dashboard/master/doc/img/dashboard-switcher.jpg)
+
 ### Add Widget
 
 The **Add Widget** button (visible to editors on unlocked dashboards) opens a modal with:
@@ -397,6 +401,8 @@ The **Add Widget** button (visible to editors on unlocked dashboards) opens a mo
 - **Position** -- select where the widget appears in the template layout (only visible when multiple positions exist)
 - **Order** -- choose the widget's position relative to others (visible only when multiple widgets are present in this area)
 - **Widget Settings** -- dynamic form section showing the selected widget's `getSettingsFormSchema()`
+
+![Add Widget](https://raw.githubusercontent.com/MDDev31/filament-dynamic-dashboard/master/doc/img/edit-add-widget.jpg)
 
 ### Widget Wrapper
 
@@ -409,6 +415,9 @@ The dashboard manager slideover contains two tabs: **Dashboards** and **Template
 #### Dashboards Tab
 
 A reorderable table of all dashboards with:
+
+![Manage Dashboards](https://raw.githubusercontent.com/MDDev31/filament-dynamic-dashboard/master/doc/img/manage-dashboards.jpg)
+
 - **Active** toggle -- enable/disable dashboards
 - **Locked** toggle -- prevent widget modifications
 - **Edit** action -- opens a tabbed modal:
@@ -419,9 +428,18 @@ A reorderable table of all dashboards with:
 - **Duplicate** action -- deep-copies the dashboard with all widgets
 - **Delete** action -- removes the dashboard
 
+![Edit Dashboard - General](https://raw.githubusercontent.com/MDDev31/filament-dynamic-dashboard/master/doc/img/edit-add-dashboard-general.jpg)
+
+![Edit Dashboard - Visible Filters](https://raw.githubusercontent.com/MDDev31/filament-dynamic-dashboard/master/doc/img/edit-add-dashboard-visible-filters.jpg)
+
+![Edit Dashboard - Default Values](https://raw.githubusercontent.com/MDDev31/filament-dynamic-dashboard/master/doc/img/edit-add-dashboard-default-values.jpg)
+
 #### Templates Tab
 
 Manage layout templates with:
+
+![Templates List](https://raw.githubusercontent.com/MDDev31/filament-dynamic-dashboard/master/doc/img/template-grid-list.jpg)
+
 - **Preview** action -- visual representation of the template structure with color-coded positions
 - **Edit** action -- modify template name and positions:
   - Each position has a **Name** and **Size** (Tiny to Full width)
@@ -431,6 +449,10 @@ Manage layout templates with:
 - **Delete** action -- remove template (protected if in use or is default)
 
 Only one template can be marked as **Default** at a time.
+
+![Edit Template](https://raw.githubusercontent.com/MDDev31/filament-dynamic-dashboard/master/doc/img/edit-grid-template.jpg)
+
+![Template Preview](https://raw.githubusercontent.com/MDDev31/filament-dynamic-dashboard/master/doc/img/template-preview.jpg)
 
 ### Safety Guards
 
@@ -496,7 +518,7 @@ php artisan vendor:publish --tag=filament-dynamic-dashboard-config
 
 ## Translations
 
-Supported languages: **English** (`en`), **French** (`fr`), **Spanish** (`es`), **Portuguese** (`pt`), **German** (`de`), **Russian** (`ru`), **Chinese** (`zh`), **Bulgarian** (`bg`), **Croatian** (`hr`), **Danish** (`da`), **Estonian** (`et`), **Finnish** (`fi`), **Greek** (`el`), **Hungarian** (`hu`), **Italian** (`it`), **Dutch** (`nl`), **Polish** (`pl`), **Romanian** (`ro`), **Swedish** (`sv`), **Czech** (`cs`), **Japanese** (`ja`), **Arabic** (`ar`).
+Supported languages: **English** (`en`), **French** (`fr`), **Spanish** (`es`), **Portuguese** (`pt`), **German** (`de`), **Russian** (`ru`), **Chinese** (`zh`), **Bulgarian** (`bg`), **Croatian** (`hr`), **Danish** (`da`), **Estonian** (`et`), **Finnish** (`fi`), **Greek** (`el`), **Hungarian** (`hu`), **Italian** (`it`), **Dutch** (`nl`), **Polish** (`pl`), **Romanian** (`ro`), **Swedish** (`sv`), **Czech** (`cs`), **Japanese** (`ja`), **Arabic** (`ar`), **Turkish** (`tr`).
 
 Publish translations to customize them:
 
@@ -508,7 +530,7 @@ All translation keys are namespaced under `filament-dynamic-dashboard::dashboard
 
 ## Changelog
 
-See [CHANGELOG.md](CHANGELOG.md) for release notes.
+See [CHANGELOG.md](https://github.com/MDDev31/filament-dynamic-dashboard/blob/master/CHANGELOG.md) for release notes.
 
 ## Credits
 Special thanks to :
@@ -517,4 +539,4 @@ Special thanks to :
 
 ## License
 
-The MIT License (MIT). See [LICENSE.md](LICENSE.md) for details.
+The MIT License (MIT). See [LICENSE.md](https://github.com/MDDev31/filament-dynamic-dashboard/blob/master/LICENSE.md) for details.
