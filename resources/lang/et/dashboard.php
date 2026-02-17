@@ -6,6 +6,7 @@ return [
     // Dashboard Manager
     'manage' => 'Halda töölaudu',
     'add_new' => 'Lisa uus töölaud',
+    'create' => 'Loo uus töölaud',
     'name' => 'Nimi',
     'description' => 'Kirjeldus',
     'widgets' => 'Vidinad',

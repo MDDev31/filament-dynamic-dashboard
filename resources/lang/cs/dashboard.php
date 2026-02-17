@@ -6,6 +6,7 @@ return [
     // Dashboard Manager
     'manage' => 'Spravovat nástěnky',
     'add_new' => 'Přidat novou nástěnku',
+    'create' => 'Vytvořit novou nástěnku',
     'name' => 'Název',
     'description' => 'Popis',
     'widgets' => 'Widgety',

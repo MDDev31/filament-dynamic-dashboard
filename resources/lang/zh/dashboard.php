@@ -6,6 +6,7 @@ return [
     // Dashboard Manager
     'manage' => '管理仪表板',
     'add_new' => '添加新仪表板',
+    'create' => '创建新仪表板',
     'name' => '名称',
     'description' => '描述',
     'widgets' => '小组件',

@@ -6,6 +6,7 @@ return [
     // Dashboard Manager
     'manage' => 'Hallitse koontinäyttöjä',
     'add_new' => 'Lisää uusi koontinäyttö',
+    'create' => 'Luo uusi koontinäyttö',
     'name' => 'Nimi',
     'description' => 'Kuvaus',
     'widgets' => 'Widgetit',

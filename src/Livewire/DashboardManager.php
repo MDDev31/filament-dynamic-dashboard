@@ -187,6 +187,7 @@ class DashboardManager extends LivewireComponent implements HasActions, HasForms
                 CreateAction::make()
                     ->label(__('filament-dynamic-dashboard::dashboard.add_new'))
                     ->modal()
+                    ->modalHeading(__('filament-dynamic-dashboard::dashboard.create'))
                     ->model(DashboardModelHelper::model())
                     ->schema($this->getDashboardFormSchema())
                     ->createAnother(false)
@@ -283,6 +284,7 @@ class DashboardManager extends LivewireComponent implements HasActions, HasForms
                 CreateAction::make()
                     ->label(__('filament-dynamic-dashboard::dashboard.add_new_grid'))
                     ->modal()
+                    ->modalHeading(__('filament-dynamic-dashboard::dashboard.add_new_grid'))
                     ->model(DashboardGrid::class)
                     ->schema($this->getGridFormSchema())
                     ->createAnother(false)
@@ -378,6 +380,7 @@ class DashboardManager extends LivewireComponent implements HasActions, HasForms
                         ->label(__('filament-dynamic-dashboard::dashboard.grid'))
                         ->relationship('grid', 'name')
                         ->selectablePlaceholder(false)
+                        ->default(fn (): ?int => DashboardGrid::default()->first()?->id)
                         ->visible(fn (): bool => DashboardGrid::query()->count() > 1),
                     // Spatie roles selector — only rendered when the permission integration is enabled
                     ...(config('filament-dynamic-dashboard.use_spatie_permissions', false) ? [

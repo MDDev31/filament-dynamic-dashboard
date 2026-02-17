@@ -6,6 +6,7 @@ return [
     // Dashboard Manager
     'manage' => 'Управление панелями',
     'add_new' => 'Добавить новую панель',
+    'create' => 'Создать новую панель',
     'name' => 'Название',
     'description' => 'Описание',
     'widgets' => 'Виджеты',

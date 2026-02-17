@@ -6,6 +6,7 @@ return [
     // Dashboard Manager
     'manage' => 'Administrer dashboards',
     'add_new' => 'Tilføj nyt dashboard',
+    'create' => 'Opret nyt dashboard',
     'name' => 'Navn',
     'description' => 'Beskrivelse',
     'widgets' => 'Widgets',

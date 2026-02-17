@@ -6,6 +6,7 @@ return [
     // Dashboard Manager
     'manage' => 'Διαχείριση πινάκων ελέγχου',
     'add_new' => 'Προσθήκη νέου πίνακα ελέγχου',
+    'create' => 'Δημιουργία νέου πίνακα ελέγχου',
     'name' => 'Όνομα',
     'description' => 'Περιγραφή',
     'widgets' => 'Widgets',

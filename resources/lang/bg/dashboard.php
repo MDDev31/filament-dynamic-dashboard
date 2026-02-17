@@ -6,6 +6,7 @@ return [
     // Dashboard Manager
     'manage' => 'Управление на таблата',
     'add_new' => 'Добавяне на ново табло',
+    'create' => 'Създаване на ново табло',
     'name' => 'Име',
     'description' => 'Описание',
     'widgets' => 'Уиджети',

@@ -3,9 +3,11 @@
 return [
     'select_dashboard' => 'Özet Ekranı Seç',
 
-   
+
+    // Dashboard Manager
     'manage' => 'Özet Ekranlarını Yönet',
     'add_new' => 'Özet Ekranı Ekle',
+    'create' => 'Yeni bir özet ekranı oluştur',
     'name' => 'İsim',
     'description' => 'Açıklama',
     'widgets' => 'Bileşenler',
@@ -20,10 +22,10 @@ return [
     'delete' => 'Sil',
     'duplicate' => 'Kopyala',
     'copy' => ':name (kopya)',
-  'cannot_delete_current' => 'Mevcut özet ekranı silinemez',
-'cannot_delete_last' => 'Son aktif özet ekranı silinemez',
-'cannot_deactivate_current' => 'Mevcut özet ekranı devre dışı bırakılamaz',
-'cannot_deactivate_last' => 'Son aktif özet ekranı devre dışı bırakılamaz',
+    'cannot_delete_current' => 'Mevcut özet ekranı silinemez',
+    'cannot_delete_last' => 'Son aktif özet ekranı silinemez',
+    'cannot_deactivate_current' => 'Mevcut özet ekranı devre dışı bırakılamaz',
+    'cannot_deactivate_last' => 'Son aktif özet ekranı devre dışı bırakılamaz',
 
 
     // Manager tabs

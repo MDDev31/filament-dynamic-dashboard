@@ -6,6 +6,7 @@ return [
     // Dashboard Manager
     'manage' => 'إدارة لوحات المعلومات',
     'add_new' => 'إضافة لوحة معلومات جديدة',
+    'create' => 'إنشاء لوحة معلومات جديدة',
     'name' => 'الاسم',
     'description' => 'الوصف',
     'widgets' => 'الودجات',

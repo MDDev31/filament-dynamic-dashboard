@@ -6,6 +6,7 @@ return [
     // Dashboard Manager
     'manage' => 'ダッシュボードの管理',
     'add_new' => '新しいダッシュボードを追加',
+    'create' => '新しいダッシュボードを作成',
     'name' => '名前',
     'description' => '説明',
     'widgets' => 'ウィジェット',

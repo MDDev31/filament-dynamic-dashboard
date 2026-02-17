@@ -6,6 +6,7 @@ return [
     // Dashboard Manager
     'manage' => 'Gestionează tablourile de bord',
     'add_new' => 'Adaugă un tablou de bord nou',
+    'create' => 'Creează un tablou de bord nou',
     'name' => 'Nume',
     'description' => 'Descriere',
     'widgets' => 'Widget-uri',

@@ -6,6 +6,7 @@ return [
     // Dashboard Manager
     'manage' => 'Zarządzaj pulpitami',
     'add_new' => 'Dodaj nowy pulpit',
+    'create' => 'Utwórz nowy pulpit',
     'name' => 'Nazwa',
     'description' => 'Opis',
     'widgets' => 'Widżety',

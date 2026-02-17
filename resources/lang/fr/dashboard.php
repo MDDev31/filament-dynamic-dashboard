@@ -6,6 +6,7 @@ return [
     // Dashboard Manager
     'manage' => 'Gérer les tableaux de bord',
     'add_new' => 'Ajouter un nouveau tableau de bord',
+    'create' => 'Créer un nouveau tableau de bord',
     'name' => 'Nom',
     'description' => 'Description',
     'widgets' => 'Widgets',

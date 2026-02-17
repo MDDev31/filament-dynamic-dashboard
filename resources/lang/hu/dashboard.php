@@ -6,6 +6,7 @@ return [
     // Dashboard Manager
     'manage' => 'Irányítópultok kezelése',
     'add_new' => 'Új irányítópult hozzáadása',
+    'create' => 'Új irányítópult létrehozása',
     'name' => 'Név',
     'description' => 'Leírás',
     'widgets' => 'Widgetek',
