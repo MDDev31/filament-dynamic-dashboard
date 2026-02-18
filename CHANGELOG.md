@@ -2,7 +2,7 @@
 
 All notable changes to `filament-dynamic-dashboard` will be documented in this file.
 
-## [0.3.4] - 2026-02-17
+## [0.4] - 2026-02-17
 
 ### Fixed
 - Fix migration error issue
@@ -10,6 +10,8 @@ All notable changes to `filament-dynamic-dashboard` will be documented in this f
 ### Added
 - Turkish language support (`tr`)
 - New translation key for dashboard heading modal
+- Configurable widget loading indicator via `showWidgetLoader()` on dashboard and optional `showLoader()` per widget
+- Widget settings form fields are now grouped under a `settings` state path for cleaner data handling
 
 ## [0.3.3] - 2026-02-10
 

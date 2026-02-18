@@ -16,7 +16,7 @@ Filament Dynamic Dashboard lets end-users create, switch, and manage multiple da
 ## Requirements
 
 - PHP >= 8.3
-- Filament >= 4.0
+- Filament >= 4.1.10
 - Laravel 10, 11, or 12
 - (Optional) `spatie/laravel-permission` for role-based visibility
 
@@ -87,6 +87,7 @@ class Dashboard extends DynamicDashboard
 | `widgetsGrid()`            | `Component`    | Override the grid layout used to render widgets                               |
 | `canEdit()`                | `static bool`  | Whether the current user can add/edit/delete widgets and manage dashboards    |
 | `canDisplay()`             | `static bool`  | Whether the current user can view a specific dashboard                        |
+| `showWidgetLoader()`       | `static bool`  | Whether to show loading indicators on widgets (default: `true`)              |
 
 ## Creating a Dynamic Widget
 
@@ -167,19 +168,19 @@ class SalesChartWidget extends ApexChartWidget implements DynamicWidget
     public static function getSettingsFormSchema(): array
     {
         return [
-            Select::make('settings.resultType')
+            Select::make('resultType')
                 ->label('Result type')
                 ->options(ResultTypeEnum::class)
                 ->required()
                 ->default(ResultTypeEnum::GrossRevenue->value),
 
-            Select::make('settings.groupBy')
+            Select::make('groupBy')
                 ->label('Group by')
                 ->options(GroupingEnum::class)
                 ->required()
                 ->default(GroupingEnum::Channel->value),
 
-            TextInput::make('settings.limit')
+            TextInput::make('limit')
                 ->label('Limit')
                 ->numeric()
                 ->required()
@@ -207,6 +208,30 @@ class SalesChartWidget extends ApexChartWidget implements DynamicWidget
     }
 }
 ```
+
+### How Settings Work
+
+The three pieces — **public properties**, **form schema**, and **casts** — are linked by a shared key name:
+
+| Piece | Role | Example |
+|---|---|---|
+| `public ResultTypeEnum $resultType` | Livewire property that receives the value at render time | The widget reads `$this->resultType` |
+| `Select::make('resultType')` in `getSettingsFormSchema()` | Form field the admin fills in (stored as JSON in the database) | Key `resultType` is saved in the `settings` JSON column |
+| `'resultType' => ResultTypeEnum::class` in `getSettingsCasts()` | Type-cast rule applied when reading the JSON back | Raw string is converted to a `BackedEnum` |
+
+**The key name must be identical across all three.** The form field name becomes the JSON key in the database, which is then cast and injected into the matching public property on the Livewire widget component.
+
+#### Hydration flow
+
+```
+Admin saves form
+    → settings stored as JSON  {"resultType": "gross_revenue", "limit": 5}
+    → on render, AsWidgetSettings cast applies getSettingsCasts()
+    → cast values spread into Widget::make(['resultType' => ResultTypeEnum::GrossRevenue, 'limit' => 5, ...])
+    → Livewire hydrates public properties  $this->resultType, $this->limit
+```
+
+> **Tip:** Always give your public properties a default value. If a setting is not yet saved in the database, the default on the property is used.
 
 ### Settings Casts
 
@@ -264,6 +289,51 @@ class MyWidget extends StatsOverviewWidget implements DynamicWidget
 ```
 
 Both properties are optional — declare only the ones you need.
+
+### Widget Loading Indicator
+
+Each widget displays a loading overlay while its Livewire component is updating. This behaviour is enabled by default and can be toggled globally or per-widget.
+
+#### Disable globally
+
+Override `showWidgetLoader()` in your dashboard subclass to disable the loader for all widgets:
+
+```php
+class Dashboard extends DynamicDashboard
+{
+    public static function showWidgetLoader(): bool
+    {
+        return false;
+    }
+}
+```
+
+#### Per-widget override
+
+Add an optional static `showLoader()` method on any widget class. No interface change is required.
+
+```php
+class HeavyChartWidget extends ApexChartWidget implements DynamicWidget
+{
+    /**
+     * Force-enable or disable the loading indicator for this widget.
+     * Return null to use the dashboard default.
+     */
+    public static function showLoader(): ?bool
+    {
+        return false; // disable loader for this widget
+    }
+
+    // ... other methods
+}
+```
+
+#### Resolution order
+
+1. If the widget class has a `showLoader()` method and it returns a non-null boolean, that value is used.
+2. Otherwise the dashboard's `showWidgetLoader()` value is used (default: `true`).
+
+This means a widget can force-enable the loader (`return true`) even when the dashboard default is `false`, or disable it (`return false`) when the dashboard default is `true`.
 
 ## Templates
 

@@ -1,7 +1,7 @@
 @php
     $childComponents = $getChildComponents();
     $actionsComponent = $childComponents[0] ?? null;
-    $widgetComponents = array_slice($childComponents, 1);
+    $widgetComponent = $childComponents[1] ?? [];
 @endphp
 
 <div class="group relative">
@@ -24,9 +24,37 @@
     @endif
 
     {{-- Widget content --}}
-    <div>
-        @foreach($widgetComponents as $component)
-            {{ $component }}
-        @endforeach
-    </div>
+    @if($showLoader)
+        <div
+            x-data="{ loading: false }"
+            x-init="
+                $nextTick(() => {
+                    const wireEl = $el.querySelector('[wire\\:id]');
+                    if (wireEl) {
+                        const wireId = wireEl.getAttribute('wire:id');
+                        Livewire.hook('commit', ({ component, succeed, fail }) => {
+                            if (component.id === wireId) {
+                                loading = true;
+                                succeed(() => { loading = false; });
+                                fail(() => { loading = false; });
+                            }
+                        });
+                    }
+                })
+            "
+            class="relative"
+        >
+            {{ $widgetComponent }}
+            <div
+                x-show="loading"
+                x-cloak
+                class="absolute inset-0 z-30 flex items-center justify-center bg-white/50 dark:bg-gray-900/50 rounded-xl transition-opacity">
+                <x-filament::loading-indicator class="h-8 w-8 text-primary-500 dark:text-primary-400" />
+            </div>
+        </div>
+    @else
+        <div>
+            {{ $widgetComponent }}
+        </div>
+    @endif
 </div>

@@ -19,6 +19,7 @@ use Filament\Schemas\Components\Component;
 use Filament\Schemas\Components\EmbeddedSchema;
 use Filament\Schemas\Components\Flex;
 use Filament\Schemas\Components\Grid;
+use Filament\Schemas\Components\Group;
 use Filament\Schemas\Components\Html;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Utilities\Get;
@@ -175,6 +176,15 @@ abstract class DynamicDashboard extends Page
      * Override in subclasses to restrict editing.
      */
     public static function canEdit(): bool
+    {
+        return true;
+    }
+
+    /**
+     * Whether to show loading indicators on widgets.
+     * Override in subclasses to disable globally.
+     */
+    public static function showWidgetLoader(): bool
     {
         return true;
     }
@@ -396,6 +406,11 @@ abstract class DynamicDashboard extends Page
         $widgetId = $widgetModel->id;
         $name = $widgetModel->name;
         $displayTitle = $widgetModel->display_title;
+        $widgetClass = $widgetModel->type;
+
+        $showLoader = method_exists($widgetClass, 'showLoader')
+            ? $widgetClass::showLoader() ?? static::showWidgetLoader()
+            : static::showWidgetLoader();
 
         return ViewComponent::make('filament-dynamic-dashboard::schemas.widget-wrapper')
             ->key('widget-wrapper-'.$widgetId)
@@ -404,6 +419,7 @@ abstract class DynamicDashboard extends Page
                 'displayTitle' => $displayTitle,
                 'canEdit' => static::canEdit(),
                 'isLocked' => $this->currentDashboard?->is_locked ?? false,
+                'showLoader' => $showLoader,
             ])
             ->schema([
                 // Actions (first child - rendered in hover container)
@@ -756,8 +772,9 @@ abstract class DynamicDashboard extends Page
         if ($type === null || !class_exists($type) || !is_subclass_of($type, DynamicWidget::class)) {
             return [];
         }
-
-        return $type::getSettingsFormSchema();
+        return [Group::make()
+            ->statePath('settings')
+            ->schema($type::getSettingsFormSchema())];
     }
 
     /**
