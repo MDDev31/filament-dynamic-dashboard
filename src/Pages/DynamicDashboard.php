@@ -597,6 +597,8 @@ abstract class DynamicDashboard extends Page
             $widgets[$widgetClass] = $widgetClass::getWidgetLabel();
         }
 
+        asort($widgets);
+
         return $widgets;
     }
 

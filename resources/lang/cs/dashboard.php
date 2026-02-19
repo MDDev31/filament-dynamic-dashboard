@@ -5,6 +5,7 @@ return [
 
     // Dashboard Manager
     'manage' => 'Spravovat nástěnky',
+    'edit' => 'Upravit nástěnku',
     'add_new' => 'Přidat novou nástěnku',
     'create' => 'Vytvořit novou nástěnku',
     'name' => 'Název',

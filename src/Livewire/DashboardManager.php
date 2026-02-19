@@ -151,6 +151,7 @@ class DashboardManager extends LivewireComponent implements HasActions, HasForms
             ->recordActions([
                 EditAction::make()
                     ->modal()
+                    ->modalHeading(__('filament-dynamic-dashboard::dashboard.edit'))
                     ->modalFooterActionsAlignment(Alignment::End)
                     ->schema($this->getDashboardFormSchema())
                     ->after(function (): void {

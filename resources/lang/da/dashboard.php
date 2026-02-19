@@ -5,6 +5,7 @@ return [
 
     // Dashboard Manager
     'manage' => 'Administrer dashboards',
+    'edit' => 'Rediger dashboard',
     'add_new' => 'Tilføj nyt dashboard',
     'create' => 'Opret nyt dashboard',
     'name' => 'Navn',

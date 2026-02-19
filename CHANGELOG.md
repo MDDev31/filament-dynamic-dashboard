@@ -2,6 +2,14 @@
 
 All notable changes to `filament-dynamic-dashboard` will be documented in this file.
 
+## [0.4.1] - 2026-02-19
+
+### Added
+- New translation key `edit` for dashboard editing across all 23 languages
+
+### Changed
+- Widget type options in the add/edit form are now sorted alphabetically by label
+
 ## [0.4] - 2026-02-17
 
 ### Fixed

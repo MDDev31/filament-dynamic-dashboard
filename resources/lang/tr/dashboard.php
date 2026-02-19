@@ -6,6 +6,7 @@ return [
 
     // Dashboard Manager
     'manage' => 'Özet Ekranlarını Yönet',
+    'edit' => 'Özet Ekranını Düzenle',
     'add_new' => 'Özet Ekranı Ekle',
     'create' => 'Yeni bir özet ekranı oluştur',
     'name' => 'İsim',

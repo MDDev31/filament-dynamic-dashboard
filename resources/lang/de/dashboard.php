@@ -5,6 +5,7 @@ return [
 
     // Dashboard Manager
     'manage' => 'Dashboards verwalten',
+    'edit' => 'Dashboard bearbeiten',
     'add_new' => 'Neues Dashboard hinzufügen',
     'create' => 'Neues Dashboard erstellen',
     'name' => 'Name',

@@ -5,6 +5,7 @@ return [
 
     // Dashboard Manager
     'manage' => 'Zarządzaj pulpitami',
+    'edit' => 'Edytuj pulpit',
     'add_new' => 'Dodaj nowy pulpit',
     'create' => 'Utwórz nowy pulpit',
     'name' => 'Nazwa',

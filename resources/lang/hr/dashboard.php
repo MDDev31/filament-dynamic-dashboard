@@ -5,6 +5,7 @@ return [
 
     // Dashboard Manager
     'manage' => 'Upravljanje nadzornim pločama',
+    'edit' => 'Uredi nadzornu ploču',
     'add_new' => 'Dodaj novu nadzornu ploču',
     'create' => 'Kreiraj novu nadzornu ploču',
     'name' => 'Naziv',

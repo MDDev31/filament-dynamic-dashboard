@@ -5,6 +5,7 @@ return [
 
     // Dashboard Manager
     'manage' => 'Gestionează tablourile de bord',
+    'edit' => 'Editează tabloul de bord',
     'add_new' => 'Adaugă un tablou de bord nou',
     'create' => 'Creează un tablou de bord nou',
     'name' => 'Nume',

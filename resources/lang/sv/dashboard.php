@@ -5,6 +5,7 @@ return [
 
     // Dashboard Manager
     'manage' => 'Hantera instrumentpaneler',
+    'edit' => 'Redigera instrumentpanel',
     'add_new' => 'Lägg till ny instrumentpanel',
     'create' => 'Skapa ny instrumentpanel',
     'name' => 'Namn',

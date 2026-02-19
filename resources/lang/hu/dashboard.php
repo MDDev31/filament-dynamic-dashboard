@@ -5,6 +5,7 @@ return [
 
     // Dashboard Manager
     'manage' => 'Irányítópultok kezelése',
+    'edit' => 'Irányítópult szerkesztése',
     'add_new' => 'Új irányítópult hozzáadása',
     'create' => 'Új irányítópult létrehozása',
     'name' => 'Név',
