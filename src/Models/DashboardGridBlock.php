@@ -85,9 +85,9 @@ class DashboardGridBlock extends Model
 
             if ($block->ordering === null) {
                 $block->ordering = (static::query()
-                    ->where('dashboard_grid_id', $block->dashboard_grid_id)
-                    ->where('parent_id', $block->parent_id)
-                    ->max('ordering') ?? -1) + 1;
+                        ->where('dashboard_grid_id', $block->dashboard_grid_id)
+                        ->where('parent_id', $block->parent_id)
+                        ->max('ordering') ?? -1) + 1;
             }
         });
 
@@ -122,6 +122,24 @@ class DashboardGridBlock extends Model
     }
 
     /**
+     * Check if any widgets are linked to this block.
+     */
+    public function hasWidgets(): bool
+    {
+        return $this->widgets()->exists();
+    }
+
+    /**
+     * Get widgets assigned to this block.
+     *
+     * @return HasMany<DashboardWidget, $this>
+     */
+    public function widgets(): HasMany
+    {
+        return $this->hasMany(DashboardWidget::class, 'dashboard_grid_block_id');
+    }
+
+    /**
      * Get the parent grid.
      *
      * @return BelongsTo<DashboardGrid, $this>
@@ -149,16 +167,6 @@ class DashboardGridBlock extends Model
     public function children(): HasMany
     {
         return $this->hasMany(DashboardGridBlock::class, 'parent_id')->orderBy('ordering');
-    }
-
-    /**
-     * Get widgets assigned to this block.
-     *
-     * @return HasMany<DashboardWidget, $this>
-     */
-    public function widgets(): HasMany
-    {
-        return $this->hasMany(DashboardWidget::class, 'dashboard_grid_block_id');
     }
 
     /**
@@ -191,6 +199,7 @@ class DashboardGridBlock extends Model
                 $block = $this;
 
                 while ($block->parent_id !== null && $depth < 3) {
+                    $block->loadMissing('parent');
                     $block = $block->parent;
                     $depth++;
                 }
@@ -198,13 +207,5 @@ class DashboardGridBlock extends Model
                 return $depth;
             }
         );
-    }
-
-    /**
-     * Check if any widgets are linked to this block.
-     */
-    public function hasWidgets(): bool
-    {
-        return $this->widgets()->exists();
     }
 }

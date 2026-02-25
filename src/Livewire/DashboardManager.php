@@ -118,7 +118,7 @@ class DashboardManager extends LivewireComponent implements HasActions, HasForms
     protected function dashboardsTable(Table $table): Table
     {
         return $table
-            ->query(DashboardModelHelper::model()::query())
+            ->query(DashboardModelHelper::model()::query()->with('grid'))
             ->defaultSort('ordering')
             ->reorderable('ordering')
             ->columns([
@@ -165,6 +165,7 @@ class DashboardManager extends LivewireComponent implements HasActions, HasForms
                     ->after(function (Dashboard $record, Dashboard $replica): void {
                         $replica->update(['name' => __('filament-dynamic-dashboard::dashboard.copy', ['name' => $replica->name])]);
 
+                        $record->loadMissing('widgets');
                         foreach ($record->widgets as $widget) {
                             $replica->widgets()->create($widget->only(['name', 'description', 'type', 'ordering', 'columns', 'is_active', 'settings', 'dashboard_grid_block_id']));
                         }
@@ -244,7 +245,7 @@ class DashboardManager extends LivewireComponent implements HasActions, HasForms
                     ->modalHeading(fn (DashboardGrid $record): string => $record->name)
                     ->modalContent(fn (DashboardGrid $record): View => view(
                         'filament-dynamic-dashboard::grid-preview',
-                        ['grid' => $record->load('rootBlocks.children.children')]
+                        ['grid' => $record->load('rootBlocks.children.children.children')]
                     ))
                     ->modalSubmitAction(false)
                     ->modalCancelActionLabel(__('filament-dynamic-dashboard::dashboard.close')),
@@ -264,6 +265,7 @@ class DashboardManager extends LivewireComponent implements HasActions, HasForms
                         $replica->update(['name' => __('filament-dynamic-dashboard::dashboard.copy', ['name' => $replica->name])]);
 
                         // Deep copy blocks recursively
+                        $record->loadMissing('rootBlocks.children.children.children');
                         $this->duplicateBlocks($record->rootBlocks, $replica->id, null);
 
                         $this->dispatch('dashboard-list-changed');

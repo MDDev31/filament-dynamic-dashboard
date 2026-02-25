@@ -2,6 +2,11 @@
 
 All notable changes to `filament-dynamic-dashboard` will be documented in this file.
 
+## [0.4.2] - 2026-02-25
+
+### Fixed
+- Add eager loading to prevent `LazyLoadingViolationException` when Laravel strict mode is enabled (`Model::shouldBeStrict()`)
+
 ## [0.4.1] - 2026-02-19
 
 ### Added
