@@ -135,9 +135,16 @@ class Dashboard extends Model
     protected function effectiveGrid(): Attribute
     {
         return Attribute::make(
-            get: fn () => $this->dashboard_grid_id
-                ? $this->grid
-                : DashboardGrid::default()->first()
+            get: function () {
+                if ($this->dashboard_grid_id) {
+                    $this->loadMissing('grid');
+                    return $this->grid;
+                }
+
+                return DashboardGrid::default()
+                    ->with('rootBlocks.children.children.children')
+                    ->first();
+            }
         );
     }
 

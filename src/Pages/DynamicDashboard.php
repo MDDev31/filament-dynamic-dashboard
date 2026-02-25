@@ -135,7 +135,13 @@ abstract class DynamicDashboard extends Page
      */
     protected function getDisplayableDashboards(): \Illuminate\Support\Collection
     {
-        return $this->getAvailableDashboards()->get()->filter(
+        $query = $this->getAvailableDashboards();
+
+        if (config('filament-dynamic-dashboard.use_spatie_permissions')) {
+            $query->with('roles');
+        }
+
+        return $query->get()->filter(
             fn(Dashboard $dashboard) => static::canDisplay($dashboard)
         );
     }
@@ -195,7 +201,9 @@ abstract class DynamicDashboard extends Page
     protected function loadCurrentDashboard(): void
     {
         $this->currentDashboard = $this->currentDashboardId
-            ? $this->getAvailableDashboards()->find($this->currentDashboardId)
+            ? $this->getAvailableDashboards()
+                ->with('grid.rootBlocks.children.children.children')
+                ->find($this->currentDashboardId)
             : null;
     }
 
@@ -370,7 +378,10 @@ abstract class DynamicDashboard extends Page
             return null;
         }
 
-        return DashboardWidget::query()->availableFor($this->currentDashboard)->get();
+        return DashboardWidget::query()
+            ->availableFor($this->currentDashboard)
+            ->with(['gridBlock', 'dashboard.grid'])
+            ->get();
     }
 
     /**

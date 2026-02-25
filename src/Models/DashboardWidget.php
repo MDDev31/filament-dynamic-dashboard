@@ -201,9 +201,17 @@ class DashboardWidget extends Model
     protected function effectiveGridBlock(): Attribute
     {
         return Attribute::make(
-            get: fn () => $this->dashboard_grid_block_id
-                ? $this->gridBlock
-                : $this->dashboard?->effective_grid?->rootBlocks()->orderBy('ordering')->first()
+            get: function () {
+                if ($this->dashboard_grid_block_id) {
+                    $this->loadMissing('gridBlock');
+
+                    return $this->gridBlock;
+                }
+
+                $this->loadMissing('dashboard.grid');
+
+                return $this->dashboard?->effective_grid?->rootBlocks()->orderBy('ordering')->first();
+            }
         );
     }
 
