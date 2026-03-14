@@ -354,6 +354,7 @@ abstract class DynamicDashboard extends Page
         // Wrap widgets AND group by block in a single pass
         $widgetsByBlock = [];
         foreach ($validWidgets as $index => $pair) {
+            $livewireComponents[$index]->key('widget-'.$pair['model']->id);
             $wrappedWidget = $this->wrapWidget($pair['model'], $livewireComponents[$index]);
             $block = $pair['model']->effective_grid_block;
             $blockSlug = $block?->slug;

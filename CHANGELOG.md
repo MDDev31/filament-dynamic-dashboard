@@ -2,6 +2,13 @@
 
 All notable changes to `filament-dynamic-dashboard` will be documented in this file.
 
+## [0.4.3] - 2026-03-14
+
+### Fixed
+- Prevent unnecessary widget refresh when opening add/edit widget modal or dashboard manager slideover
+- Use stable Livewire keys on widget components to avoid remounting on parent re-render
+- Replace `uniqid()` key on DashboardManager to prevent component remounting on every render
+
 ## [0.4.2] - 2026-02-25
 
 ### Fixed
