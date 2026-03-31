@@ -2,6 +2,11 @@
 
 All notable changes to `filament-dynamic-dashboard` will be documented in this file.
 
+## [0.4.4] - 2026-03-31
+
+### Added
+- Laravel 13 compatibility
+
 ## [0.4.3] - 2026-03-14
 
 ### Fixed
