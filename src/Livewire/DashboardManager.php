@@ -2,7 +2,6 @@
 
 namespace MDDev\DynamicDashboard\Livewire;
 
-use Filament\Actions\Action;
 use Filament\Actions\Concerns\InteractsWithActions;
 use Filament\Actions\Contracts\HasActions;
 use Filament\Actions\CreateAction;
@@ -10,9 +9,6 @@ use Filament\Actions\DeleteAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\ReplicateAction;
 use Filament\Forms\Components\Field;
-use Filament\Schemas\Components\Utilities\Get;
-use Filament\Forms\Components\Hidden;
-use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\RichEditor;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
@@ -20,14 +16,16 @@ use Filament\Forms\Components\Toggle;
 use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Contracts\HasForms;
 use Filament\Schemas\Components\Component;
-use Filament\Schemas\Components\Flex;
 use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Group;
+use Filament\Schemas\Components\Html;
 use Filament\Schemas\Components\Tabs;
 use Filament\Schemas\Components\Tabs\Tab;
 use Filament\Schemas\Components\Text;
+use Filament\Schemas\Components\Utilities\Get;
 use Filament\Support\Enums\Alignment;
 use Filament\Support\Enums\FontWeight;
+use Filament\Support\Enums\IconPosition;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Columns\ToggleColumn;
@@ -36,18 +34,15 @@ use Filament\Tables\Contracts\HasTable;
 use Filament\Tables\Table;
 use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Database\Eloquent\Collection;
-use Livewire\Attributes\Url;
 use Livewire\Component as LivewireComponent;
 use MDDev\DynamicDashboard\DashboardModelHelper;
 use MDDev\DynamicDashboard\Models\Dashboard;
-use MDDev\DynamicDashboard\Models\DashboardGrid;
-use MDDev\DynamicDashboard\Models\DashboardGridBlock;
 use MDDev\DynamicDashboard\Pages\DynamicDashboard;
+use MDDev\DynamicDashboard\Templates\TemplateRegistry;
 
 /**
- * Livewire component that provides the slideover UI for managing dashboards and grids
- * (CRUD, reorder, toggle active/locked, duplicate with widgets, widget reorder).
+ * Livewire component that provides the slideover UI for managing dashboards
+ * (CRUD, reorder, toggle active/locked, duplicate with widgets).
  */
 class DashboardManager extends LivewireComponent implements HasActions, HasForms, HasTable
 {
@@ -59,9 +54,6 @@ class DashboardManager extends LivewireComponent implements HasActions, HasForms
     public ?string $pageClass = null;
 
     public ?int $currentDashboardId = null;
-
-    #[Url]
-    public string $activeManagerTab = 'dashboards';
 
     /**
      * Initialize the component with the dashboard page class and current dashboard ID.
@@ -81,51 +73,31 @@ class DashboardManager extends LivewireComponent implements HasActions, HasForms
     }
 
     /**
-     * Switch between "dashboards" and "grids" tabs.
-     *
-     * Resets the table to refresh data for the new tab.
-     */
-    public function switchTab(string $tab): void
-    {
-        $this->activeManagerTab = $tab;
-        $this->resetTable();
-    }
-
-    /**
-     * Get the table configuration based on the active tab.
-     *
-     * Delegates to dashboardsTable() or gridsTable() depending on activeManagerTab.
-     */
-    public function table(Table $table): Table
-    {
-        if ($this->activeManagerTab === 'grids') {
-            return $this->gridsTable($table);
-        }
-
-        return $this->dashboardsTable($table);
-    }
-
-    /**
      * Configure the dashboards table.
      *
      * Displays all dashboards with:
-     * - Name column with grid name description
+     * - Name column with template name description
      * - Widget count badge
      * - Active/Locked toggle columns
      * - Edit, Duplicate, Delete row actions
      * - Create header action
      */
-    protected function dashboardsTable(Table $table): Table
+    public function table(Table $table): Table
     {
         return $table
-            ->query(DashboardModelHelper::model()::query()->with('grid'))
+            ->query(DashboardModelHelper::model()::query())
             ->defaultSort('ordering')
             ->reorderable('ordering')
             ->columns([
                 TextColumn::make('name')
                     ->label(__('filament-dynamic-dashboard::dashboard.name'))
                     ->weight(FontWeight::Bold)
-                    ->description(fn (Dashboard $record): ?string => $record->effective_grid?->name)
+                    ->description(fn (Dashboard $record): ?string => $record->template?->name())
+                    ->icon(fn (Dashboard $record) => $record->is_personal ? Heroicon::OutlinedUser : null)
+                    ->iconPosition(IconPosition::After)
+                    ->tooltip(fn (Dashboard $record): ?string => $record->is_personal
+                        ? __('filament-dynamic-dashboard::dashboard.personal')
+                        : null)
                     ->searchable(),
                 TextColumn::make('widgets_count')
                     ->label(__('filament-dynamic-dashboard::dashboard.widgets'))
@@ -157,17 +129,21 @@ class DashboardManager extends LivewireComponent implements HasActions, HasForms
                     ->after(function (): void {
                         $this->dispatch('dashboard-list-changed');
                     }),
-                // Duplicates the dashboard and deep-copies all its widgets
                 ReplicateAction::make()
                     ->label(__('filament-dynamic-dashboard::dashboard.duplicate'))
                     ->modal(false)
-                    ->excludeAttributes(['ordering'])
+                    // `widgets_count` is a virtual attribute
+                    ->excludeAttributes(['ordering', 'widgets_count', 'created_by'])
                     ->after(function (Dashboard $record, Dashboard $replica): void {
                         $replica->update(['name' => __('filament-dynamic-dashboard::dashboard.copy', ['name' => $replica->name])]);
 
                         $record->loadMissing('widgets');
                         foreach ($record->widgets as $widget) {
-                            $replica->widgets()->create($widget->only(['name', 'description', 'type', 'ordering', 'columns', 'is_active', 'settings', 'dashboard_grid_block_id']));
+                            $replica->widgets()->create($widget->only([
+                                'name', 'description', 'type', 'section_slug',
+                                'x', 'y', 'w', 'h',
+                                'is_active', 'display_title', 'settings',
+                            ]));
                         }
 
                         $this->dispatch('dashboard-list-changed');
@@ -207,126 +183,6 @@ class DashboardManager extends LivewireComponent implements HasActions, HasForms
     }
 
     /**
-     * Configure the grids table.
-     *
-     * Displays all grid layouts with:
-     * - Name column
-     * - Block count badge
-     * - Default toggle column
-     * - Preview, Edit, Duplicate, Delete row actions
-     * - Create header action
-     */
-    protected function gridsTable(Table $table): Table
-    {
-        return $table
-            ->query(DashboardGrid::query())
-            ->columns([
-                TextColumn::make('name')
-                    ->label(__('filament-dynamic-dashboard::dashboard.grid_name'))
-                    ->weight(FontWeight::Bold)
-                    ->searchable(),
-                TextColumn::make('blocks_count')
-                    ->label(__('filament-dynamic-dashboard::dashboard.blocks_count'))
-                    ->counts('blocks')
-                    ->badge(),
-                ToggleColumn::make('is_default')
-                    ->label(__('filament-dynamic-dashboard::dashboard.default'))
-                    ->disabled(fn (DashboardGrid $record): bool => $record->is_default)
-                    ->afterStateUpdated(function (): void {
-                        $this->dispatch('dashboard-list-changed');
-                    }),
-            ])
-            ->recordActions([
-                Action::make('preview')
-                    ->label(__('filament-dynamic-dashboard::dashboard.preview_grid'))
-                    ->icon(Heroicon::OutlinedEye)
-                    ->iconButton()
-                    ->color('gray')
-                    ->modalHeading(fn (DashboardGrid $record): string => $record->name)
-                    ->modalContent(fn (DashboardGrid $record): View => view(
-                        'filament-dynamic-dashboard::grid-preview',
-                        ['grid' => $record->load('rootBlocks.children.children.children')]
-                    ))
-                    ->modalSubmitAction(false)
-                    ->modalCancelActionLabel(__('filament-dynamic-dashboard::dashboard.close')),
-                EditAction::make()
-                    ->modal()
-                    ->modalHeading(__('filament-dynamic-dashboard::dashboard.edit_grid'))
-                    ->modalFooterActionsAlignment(Alignment::End)
-                    ->schema($this->getGridFormSchema())
-                    ->after(function (): void {
-                        $this->dispatch('dashboard-list-changed');
-                    }),
-                ReplicateAction::make()
-                    ->label(__('filament-dynamic-dashboard::dashboard.duplicate'))
-                    ->modal(false)
-                    ->excludeAttributes(['slug', 'is_default'])
-                    ->after(function (DashboardGrid $record, DashboardGrid $replica): void {
-                        $replica->update(['name' => __('filament-dynamic-dashboard::dashboard.copy', ['name' => $replica->name])]);
-
-                        // Deep copy blocks recursively
-                        $record->loadMissing('rootBlocks.children.children.children');
-                        $this->duplicateBlocks($record->rootBlocks, $replica->id, null);
-
-                        $this->dispatch('dashboard-list-changed');
-                    }),
-                DeleteAction::make()
-                    ->modalHeading(__('filament-dynamic-dashboard::dashboard.delete_grid'))
-                    ->modalDescription(__('filament-dynamic-dashboard::dashboard.delete_grid_confirmation'))
-                    ->visible(fn (DashboardGrid $record): bool => ! $record->is_default && ! $record->isInUse())
-                    ->tooltip(fn (DashboardGrid $record): ?string => $record->is_default
-                        ? __('filament-dynamic-dashboard::dashboard.cannot_delete_default_grid')
-                        : ($record->isInUse()
-                            ? __('filament-dynamic-dashboard::dashboard.cannot_delete_grid_in_use')
-                            : null))
-                    ->after(function (): void {
-                        $this->dispatch('dashboard-list-changed');
-                    }),
-            ])
-            ->headerActions([
-                CreateAction::make()
-                    ->label(__('filament-dynamic-dashboard::dashboard.add_new_grid'))
-                    ->modal()
-                    ->modalHeading(__('filament-dynamic-dashboard::dashboard.add_new_grid'))
-                    ->model(DashboardGrid::class)
-                    ->schema($this->getGridFormSchema())
-                    ->createAnother(false)
-                    ->modalFooterActionsAlignment(Alignment::End)
-                    ->after(function (): void {
-                        $this->dispatch('dashboard-list-changed');
-                    }),
-            ])
-            ->paginated(false);
-    }
-
-    /**
-     * Recursively duplicate blocks from source to target grid.
-     *
-     * Creates deep copies of all blocks maintaining the parent-child hierarchy.
-     *
-     * @param  Collection<int, DashboardGridBlock>  $blocks  Source blocks to duplicate
-     * @param  int  $gridId  Target grid ID
-     * @param  int|null  $parentId  Parent block ID for nested blocks (null for root level)
-     */
-    protected function duplicateBlocks(Collection $blocks, int $gridId, ?int $parentId): void
-    {
-        foreach ($blocks as $block) {
-            $newBlock = DashboardGridBlock::create([
-                'dashboard_grid_id' => $gridId,
-                'parent_id' => $parentId,
-                'name' => $block->name,
-                'columns' => $block->columns,
-                'display_empty' => $block->display_empty,
-                'ordering' => $block->ordering,
-            ]);
-
-            if ($block->children->isNotEmpty()) {
-                $this->duplicateBlocks($block->children, $gridId, $newBlock->id);
-            }
-        }
-    }
-
-    /**
      * Check if the dashboard is the currently selected one.
      */
     protected function isCurrentDashboard(Dashboard $record): bool
@@ -354,7 +210,7 @@ class DashboardManager extends LivewireComponent implements HasActions, HasForms
      * Get the form schema for creating/editing a dashboard.
      *
      * Includes tabs for:
-     * - General: name, description, grid selector, roles (if Spatie permissions enabled)
+     * - General: name, description, template_key selector, roles (if Spatie permissions enabled)
      * - Visible Filters: toggle visibility of each filter (if page has filters)
      * - Default Values: set default filter values (if page has filters)
      *
@@ -378,13 +234,24 @@ class DashboardManager extends LivewireComponent implements HasActions, HasForms
                             'link',
                             'bulletList',
                         ]),
-                    // Grid selector - only visible when multiple grids exist
-                    Select::make('dashboard_grid_id')
-                        ->label(__('filament-dynamic-dashboard::dashboard.grid'))
-                        ->relationship('grid', 'name')
-                        ->selectablePlaceholder(false)
-                        ->default(fn (): ?int => DashboardGrid::default()->first()?->id)
-                        ->visible(fn (): bool => DashboardGrid::query()->count() > 1),
+                    Grid::make()
+                        ->schema([
+                            Select::make('template_key')
+                                ->label(__('filament-dynamic-dashboard::dashboard.template'))
+                                ->options(fn (): array => $this->getTemplateOptions())
+                                ->default(config('filament-dynamic-dashboard.default_template', 'flat-12'))
+                                ->selectablePlaceholder(false)
+                                ->helperText(fn (?string $state): ?string => $state
+                                    ? app(TemplateRegistry::class)->find($state)?->description()
+                                    : null)
+                                ->live()
+                                ->required(),
+                            Html::make(fn (Get $get): string => $this->renderTemplatePreview($get('template_key'))),
+                        ]),
+                    Toggle::make('is_personal')
+                        ->label(__('filament-dynamic-dashboard::dashboard.personal'))
+                        ->helperText(__('filament-dynamic-dashboard::dashboard.personal_help'))
+                        ->default(fn (): bool => (bool) config('filament-dynamic-dashboard.default_personal', false)),
                     // Spatie roles selector — only rendered when the permission integration is enabled
                     ...(config('filament-dynamic-dashboard.use_spatie_permissions', false) ? [
                         Select::make('roles')
@@ -413,137 +280,37 @@ class DashboardManager extends LivewireComponent implements HasActions, HasForms
     }
 
     /**
-     * Get the form schema for creating/editing a grid layout.
+     * Build the `[key => localized name]` map for the template selector.
      *
-     * Includes:
-     * - Grid name input
-     * - Nested repeater for root blocks (up to 3 levels deep)
-     *
-     * @return array<Component>
+     * @return array<string, string>
      */
-    protected function getGridFormSchema(): array
+    protected function getTemplateOptions(): array
     {
-        return [
-            TextInput::make('name')
-                ->label(__('filament-dynamic-dashboard::dashboard.grid_name'))
-                ->required()
-                ->maxLength(255),
-
-            Hidden::make('columns')->default(12),
-
-            Repeater::make('rootBlocks')
-                ->hiddenLabel()
-                ->relationship()
-                ->schema($this->getBlockFormSchema(0))
-                ->orderColumn('ordering')
-                ->reorderable()
-                ->collapsible()
-                ->collapseAllAction(null)
-                ->expandAllAction(null)
-                ->compact()
-                ->itemLabel(fn (array $state): ?string => $state['name'] ?? null)
-                ->defaultItems(1)
-                ->required()
-                ->addActionLabel(__('filament-dynamic-dashboard::dashboard.add_block'))
-                ->addAction(fn ($action) => $action->color('info'))
-                ->deleteAction(
-                    fn ($action) => $action->hidden(fn (array $arguments, Repeater $component): bool => $this->blockHasWidgets($arguments, $component))
-                ),
-        ];
+        return collect(app(TemplateRegistry::class)->enabled())
+            ->mapWithKeys(fn ($template) => [$template->key => $template->name()])
+            ->all();
     }
 
     /**
-     * Get the form schema for a block at a given depth.
+     * HTML for the side-by-side template preview. Resolves the current `template_key`
+     * (falling back to the configured default), pulls the paired SVG from the
+     * registry, and wraps it so it scales to the form column.
      *
-     * @return array<Component>
+     * Returns an empty string when no SVG was shipped for the resolved key —
+     * the right column then just collapses.
      */
-    protected function getBlockFormSchema(int $depth): array
+    protected function renderTemplatePreview(?string $key): string
     {
-        $columnOptions = [
-            1 => __('filament-dynamic-dashboard::dashboard.column_1'),
-            2 => __('filament-dynamic-dashboard::dashboard.column_2'),
-            3 => __('filament-dynamic-dashboard::dashboard.column_3'),
-            4 => __('filament-dynamic-dashboard::dashboard.column_4'),
-            5 => __('filament-dynamic-dashboard::dashboard.column_5'),
-            6 => __('filament-dynamic-dashboard::dashboard.column_6'),
-            7 => __('filament-dynamic-dashboard::dashboard.column_7'),
-            8 => __('filament-dynamic-dashboard::dashboard.column_8'),
-            9 => __('filament-dynamic-dashboard::dashboard.column_9'),
-            10 => __('filament-dynamic-dashboard::dashboard.column_10'),
-            11 => __('filament-dynamic-dashboard::dashboard.column_11'),
-            12 => __('filament-dynamic-dashboard::dashboard.column_12'),
-        ];
+        $resolved = $key ?? config('filament-dynamic-dashboard.default_template', 'flat-12');
+        $svg = app(TemplateRegistry::class)->previewSvg($resolved);
 
-        $schema = [
-            Flex::make([
-                TextInput::make('name')
-                    ->hiddenLabel()
-                    ->placeholder(__('filament-dynamic-dashboard::dashboard.block_name'))
-                    ->required()
-                    ->maxLength(255)
-                    ->live(debounce: 500)
-                    ->grow(),
-                Select::make('columns')
-                    ->hiddenLabel()
-                    ->selectablePlaceholder(false)
-                    ->options($columnOptions)
-                    ->default(6)
-                    ->required()
-                    ->grow(false),
-                Toggle::make('display_empty')
-                    ->hiddenLabel()
-                    ->default(false)
-                    ->hintIcon(Heroicon::InformationCircle)
-                    ->hintIconTooltip(__('filament-dynamic-dashboard::dashboard.display_empty'))
-                    ->grow(false),
-            ])->from('md'),
-        ];
-
-        // Allow child blocks up to depth 2 (3 levels total: 0, 1, 2)
-        if ($depth < 2) {
-            // Level 1 (depth 0 children) -> green (success), Level 2 (depth 1 children) -> red (danger)
-            $childColor = $depth === 0 ? 'success' : 'danger';
-
-            $schema[] = Repeater::make('children')
-                ->hiddenLabel()
-                ->relationship()
-                ->schema($this->getBlockFormSchema($depth + 1))
-                ->orderColumn('ordering')
-                ->reorderable()
-                ->collapsible()
-                ->collapseAllAction(null)
-                ->expandAllAction(null)
-                ->compact()
-                ->itemLabel(fn (array $state): ?string => $state['name'] ?? null)
-                ->defaultItems(0)
-                ->addActionLabel(fn (Get $get): string => empty($get('name'))?
-                   ''
-                    : __('filament-dynamic-dashboard::dashboard.add_child_block', ['parent_block_name' => $get('name')]))
-                ->addAction(fn ($action) => $action->color($childColor))
-                ->addable(fn (Get $get): bool => ! empty($get('name')))
-                ->deleteAction(
-                    fn ($action) => $action->hidden(fn (array $arguments, Repeater $component): bool => $this->blockHasWidgets($arguments, $component))
-                );
+        if ($svg === null) {
+            return '';
         }
 
-        return $schema;
-    }
-
-    /**
-     * Check if a block in a repeater has widgets linked to it.
-     */
-    protected function blockHasWidgets(array $arguments, Repeater $component): bool
-    {
-        $items = $component->getState();
-        $uuid = $arguments['item'];
-
-        if (! isset($items[$uuid]['id'])) {
-            return false;
-        }
-
-        $block = DashboardGridBlock::find($items[$uuid]['id']);
-
-        return $block?->hasWidgets() ?? false;
+        return '<div style="display:flex;align-items:center;justify-content:center;width:100%;padding:0.25rem 0;">'
+            .'<div style="width:100%;max-width:260px;">'.$svg.'</div>'
+            .'</div>';
     }
 
     /**

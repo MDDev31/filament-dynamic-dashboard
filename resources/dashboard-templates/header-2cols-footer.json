@@ -1,0 +1,32 @@
+{
+  "key": "header-2cols-footer",
+  "name": "filament-dynamic-dashboard::templates.header_2cols_footer.name",
+  "description": "filament-dynamic-dashboard::templates.header_2cols_footer.description",
+  "columns": 12,
+  "sections": [
+    {
+      "slug": "header",
+      "name": "filament-dynamic-dashboard::templates.header_2cols_footer.header",
+      "columns": 12,
+      "row_height": 60
+    },
+    {
+      "slug": "left",
+      "name": "filament-dynamic-dashboard::templates.header_2cols_footer.left",
+      "columns": 6,
+      "row_height": 80
+    },
+    {
+      "slug": "right",
+      "name": "filament-dynamic-dashboard::templates.header_2cols_footer.right",
+      "columns": 6,
+      "row_height": 80
+    },
+    {
+      "slug": "footer",
+      "name": "filament-dynamic-dashboard::templates.header_2cols_footer.footer",
+      "columns": 12,
+      "row_height": 60
+    }
+  ]
+}

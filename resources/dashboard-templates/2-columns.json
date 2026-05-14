@@ -1,0 +1,20 @@
+{
+  "key": "2-columns",
+  "name": "filament-dynamic-dashboard::templates.two_columns.name",
+  "description": "filament-dynamic-dashboard::templates.two_columns.description",
+  "columns": 12,
+  "sections": [
+    {
+      "slug": "left",
+      "name": "filament-dynamic-dashboard::templates.two_columns.left",
+      "columns": 6,
+      "row_height": 80
+    },
+    {
+      "slug": "right",
+      "name": "filament-dynamic-dashboard::templates.two_columns.right",
+      "columns": 6,
+      "row_height": 80
+    }
+  ]
+}

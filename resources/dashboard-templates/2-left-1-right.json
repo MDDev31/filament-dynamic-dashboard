@@ -1,0 +1,27 @@
+{
+  "key": "2-left-1-right",
+  "name": "filament-dynamic-dashboard::templates.two_left_one_right.name",
+  "description": "filament-dynamic-dashboard::templates.two_left_one_right.description",
+  "columns": 12,
+  "sections": [
+    {
+      "slug": "top-left",
+      "name": "filament-dynamic-dashboard::templates.two_left_one_right.top_left",
+      "columns": 6,
+      "row_height": 80
+    },
+    {
+      "slug": "right",
+      "name": "filament-dynamic-dashboard::templates.two_left_one_right.right",
+      "columns": 6,
+      "row_span": 2,
+      "row_height": 80
+    },
+    {
+      "slug": "bottom-left",
+      "name": "filament-dynamic-dashboard::templates.two_left_one_right.bottom_left",
+      "columns": 6,
+      "row_height": 80
+    }
+  ]
+}

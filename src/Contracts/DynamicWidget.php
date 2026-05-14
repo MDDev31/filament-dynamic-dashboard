@@ -30,4 +30,42 @@ interface DynamicWidget
      * @return array<string, string>
      */
     public static function getSettingsCasts(): array;
+
+    /**
+     * Default width of a new widget instance, in grid columns.
+     *
+     * Prefixed to avoid clashing with parent Filament widget methods such as
+     * Filament chart widgets' instance method `getMaxHeight()`. PHP forbids
+     * overriding an instance method with a static method of the same name.
+     */
+    public static function getDynamicDashboardDefaultWidth(): int;
+
+    /**
+     * Default height of a new widget instance, in grid rows.
+     */
+    public static function getDynamicDashboardDefaultHeight(): int;
+
+    /**
+     * Minimum width the user can resize this widget to, in grid columns.
+     * Return the same value as getDynamicDashboardMaxWidth() to lock width.
+     */
+    public static function getDynamicDashboardMinWidth(): int;
+
+    /**
+     * Maximum width the user can resize this widget to, in grid columns.
+     * Return the same value as getDynamicDashboardMinWidth() to lock width.
+     */
+    public static function getDynamicDashboardMaxWidth(): int;
+
+    /**
+     * Minimum height the user can resize this widget to, in grid rows.
+     * Return the same value as getDynamicDashboardMaxHeight() to lock height.
+     */
+    public static function getDynamicDashboardMinHeight(): int;
+
+    /**
+     * Maximum height the user can resize this widget to, in grid rows.
+     * Return the same value as getDynamicDashboardMinHeight() to lock height.
+     */
+    public static function getDynamicDashboardMaxHeight(): int;
 }

@@ -1,6 +1,7 @@
 /.idea
 /.claude
 /vendor
+composer.lock
 # Laravel BOOST
 .ai
 .mcp.json

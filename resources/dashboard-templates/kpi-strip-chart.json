@@ -1,0 +1,20 @@
+{
+  "key": "kpi-strip-chart",
+  "name": "filament-dynamic-dashboard::templates.kpi_strip_chart.name",
+  "description": "filament-dynamic-dashboard::templates.kpi_strip_chart.description",
+  "columns": 12,
+  "sections": [
+    {
+      "slug": "kpi",
+      "name": "filament-dynamic-dashboard::templates.kpi_strip_chart.kpi",
+      "columns": 12,
+      "row_height": 60
+    },
+    {
+      "slug": "chart",
+      "name": "filament-dynamic-dashboard::templates.kpi_strip_chart.chart",
+      "columns": 12,
+      "row_height": 120
+    }
+  ]
+}

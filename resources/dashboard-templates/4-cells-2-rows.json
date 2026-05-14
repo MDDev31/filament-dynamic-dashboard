@@ -1,0 +1,32 @@
+{
+  "key": "4-cells-2-rows",
+  "name": "filament-dynamic-dashboard::templates.four_cells_two_rows.name",
+  "description": "filament-dynamic-dashboard::templates.four_cells_two_rows.description",
+  "columns": 12,
+  "sections": [
+    {
+      "slug": "top-left",
+      "name": "filament-dynamic-dashboard::templates.four_cells_two_rows.top_left",
+      "columns": 6,
+      "row_height": 80
+    },
+    {
+      "slug": "top-right",
+      "name": "filament-dynamic-dashboard::templates.four_cells_two_rows.top_right",
+      "columns": 6,
+      "row_height": 80
+    },
+    {
+      "slug": "bottom-left",
+      "name": "filament-dynamic-dashboard::templates.four_cells_two_rows.bottom_left",
+      "columns": 6,
+      "row_height": 80
+    },
+    {
+      "slug": "bottom-right",
+      "name": "filament-dynamic-dashboard::templates.four_cells_two_rows.bottom_right",
+      "columns": 6,
+      "row_height": 80
+    }
+  ]
+}

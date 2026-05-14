@@ -8,8 +8,6 @@ use Filament\Actions\ActionGroup;
 use Filament\Forms\Components\Field;
 use Filament\Forms\Components\Hidden;
 use Filament\Forms\Components\Select;
-use Filament\Forms\Components\Slider;
-use Filament\Forms\Components\Slider\Enums\PipsMode;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Pages\Dashboard\Concerns\HasFiltersForm;
@@ -23,7 +21,6 @@ use Filament\Schemas\Components\Group;
 use Filament\Schemas\Components\Html;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Utilities\Get;
-use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Components\View as ViewComponent;
 use Filament\Schemas\Schema;
 use Filament\Support\Colors\Color;
@@ -31,19 +28,21 @@ use Filament\Support\Enums\Alignment;
 use Filament\Support\Enums\Size;
 use Filament\Support\Enums\Width;
 use Filament\Support\Icons\Heroicon;
-use Filament\Support\RawJs;
 use Illuminate\Contracts\Support\Htmlable;
 use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\On;
+use Livewire\Attributes\Renderless;
 use Livewire\Attributes\Session;
 use MDDev\DynamicDashboard\Contracts\DynamicWidget;
 use MDDev\DynamicDashboard\DashboardModelHelper;
 use MDDev\DynamicDashboard\Models\Dashboard;
-use MDDev\DynamicDashboard\Models\DashboardGrid;
-use MDDev\DynamicDashboard\Models\DashboardGridBlock;
 use MDDev\DynamicDashboard\Models\DashboardWidget;
+use MDDev\DynamicDashboard\Templates\DashboardTemplate;
+use MDDev\DynamicDashboard\Templates\TemplateRegistry;
+use Throwable;
 
 /**
  * Abstract Filament page that renders a user-configurable dashboard.
@@ -157,11 +156,17 @@ abstract class DynamicDashboard extends Page
     /**
      * Determine if the current user can view this dashboard.
      *
-     * Editors always have access. Otherwise, Spatie roles are checked when
-     * the model supports them, falling back to the page-level `canAccess()`.
+     * A personal dashboard is visible only to its creator — even editors
+     * cannot bypass this. For global dashboards, editors always have access
+     * and Spatie roles are checked when the model supports them, falling
+     * back to the page-level `canAccess()`.
      */
     public static function canDisplay(Dashboard $dashboard): bool
     {
+        if ($dashboard->is_personal && $dashboard->created_by !== auth()->id()) {
+            return false;
+        }
+
         if (static::canEdit()) {
             return true;
         }
@@ -201,9 +206,7 @@ abstract class DynamicDashboard extends Page
     protected function loadCurrentDashboard(): void
     {
         $this->currentDashboard = $this->currentDashboardId
-            ? $this->getAvailableDashboards()
-                ->with('grid.rootBlocks.children.children.children')
-                ->find($this->currentDashboardId)
+            ? $this->getAvailableDashboards()->find($this->currentDashboardId)
             : null;
     }
 
@@ -323,50 +326,87 @@ abstract class DynamicDashboard extends Page
     /**
      * Build and return the widgets content component.
      *
-     * This method:
-     * 1. Retrieves all widgets for the current dashboard
-     * 2. Filters out unavailable or unauthorized widgets
-     * 3. Groups widgets by their assigned grid block
-     * 4. Wraps each widget with edit/delete actions (if user can edit)
-     * 5. Returns the complete grid layout with nested blocks
+     * Renders the dashboard canvas as a single Blade view (`livewire.dashboard-grid`).
+     * Each section becomes its own GridStack instance; widgets are projected to plain
+     * arrays and the view renders each Livewire widget directly via `@livewire`.
      */
     public function getWidgetsContentComponent(): Component
     {
-        $widgetModels = $this->getCurrentDashboardWidgets() ?? collect();
+        $template = $this->getCurrentDashboard()?->template
+            ?? app(TemplateRegistry::class)->default();
 
-        // Filter and prepare widgets in a single pass
-        $validWidgets = $widgetModels
-            ->filter(fn(DashboardWidget $model) => $this->isWidgetAvailableForDashboard($model->type))
-            ->map(fn(DashboardWidget $model) => [
-                'model' => $model,
-                'config' => $model->getWidget(),
-            ])
-            ->filter(fn(array $widgetData) => $widgetData['config'] !== null)
-            ->filter(fn(array $widgetData) => $widgetData['config']->widget::canView())
-            ->values();
+        $canEdit = static::canEdit();
+        $canDrag = $canEdit && ! ($this->currentDashboard?->is_locked ?? false);
 
-        // Get configs for getWidgetsSchemaComponents
-        $configs = $validWidgets->pluck('config')->all();
+        return ViewComponent::make('filament-dynamic-dashboard::livewire.dashboard-grid')
+            ->viewData([
+                'template' => $template,
+                'widgetsBySection' => $this->buildWidgetsViewData($template),
+                // canEdit = user permission (decides whether action chrome ever renders).
+                // canDrag = canEdit AND ! is_locked (decides GridStack static mode and
+                // the `is-readonly` canvas class that hides the action chrome via CSS).
+                'canEdit' => $canEdit,
+                'canDrag' => $canDrag,
+            ]);
+    }
 
-        // Get the Livewire components from parent method
-        $livewireComponents = $this->getWidgetsSchemaComponents($configs);
+    /**
+     * Project the current dashboard's widgets into a `[section_slug => array<widget data>]`
+     * structure consumed by the canvas Blade view.
+     *
+     * Widgets whose `section_slug` is unknown to the template are reassigned to the
+     * first section at render time. The DB is not touched until the next save.
+     *
+     * @return array<string, array<int, array<string, mixed>>>
+     */
+    protected function buildWidgetsViewData(DashboardTemplate $template): array
+    {
+        $widgets = $this->getCurrentDashboardWidgets() ?? collect();
+        $sectionSlugs = array_map(fn ($s) => $s->slug, $template->sections);
+        $firstSlug = $template->sections[0]->slug;
 
-        // Wrap widgets AND group by block in a single pass
-        $widgetsByBlock = [];
-        foreach ($validWidgets as $index => $pair) {
-            $livewireComponents[$index]->key('widget-'.$pair['model']->id);
-            $wrappedWidget = $this->wrapWidget($pair['model'], $livewireComponents[$index]);
-            $block = $pair['model']->effective_grid_block;
-            $blockSlug = $block?->slug;
+        $bySection = [];
 
-            if ($blockSlug !== null) {
-                if (!isset($widgetsByBlock[$blockSlug])) {
-                    $widgetsByBlock[$blockSlug] = [];
-                }
-                $widgetsByBlock[$blockSlug][] = $wrappedWidget;
+        foreach ($widgets as $model) {
+            if (! $this->isWidgetAvailableForDashboard($model->type)) {
+                continue;
             }
+
+            $type = $model->type;
+
+            if (! class_exists($type) || ! is_subclass_of($type, DynamicWidget::class)) {
+                continue;
+            }
+
+            if (! $type::canView()) {
+                continue;
+            }
+
+            $slug = in_array($model->section_slug, $sectionSlugs, true)
+                ? $model->section_slug
+                : $firstSlug;
+
+            $bySection[$slug][] = [
+                'id' => $model->id,
+                'type' => $type,
+                'name' => $model->name,
+                'displayTitle' => $model->display_title,
+                'settings' => $model->settings ?? [],
+                'x' => $model->x,
+                'y' => $model->y,
+                'w' => $model->w,
+                'h' => $model->h,
+                'minW' => $type::getDynamicDashboardMinWidth(),
+                'maxW' => $type::getDynamicDashboardMaxWidth(),
+                'minH' => $type::getDynamicDashboardMinHeight(),
+                'maxH' => $type::getDynamicDashboardMaxHeight(),
+                'showLoader' => method_exists($type, 'showLoader')
+                    ? ($type::showLoader() ?? static::showWidgetLoader())
+                    : static::showWidgetLoader(),
+            ];
         }
-        return $this->widgetsGrid($widgetsByBlock);
+
+        return $bySection;
     }
 
     /**
@@ -381,7 +421,6 @@ abstract class DynamicDashboard extends Page
 
         return DashboardWidget::query()
             ->availableFor($this->currentDashboard)
-            ->with(['gridBlock', 'dashboard.grid'])
             ->get();
     }
 
@@ -411,108 +450,17 @@ abstract class DynamicDashboard extends Page
     }
 
     /**
-     * Wrap a widget with a header containing name and action buttons.
-     */
-    protected function wrapWidget(DashboardWidget $widgetModel, Component $widgetComponent): Component
-    {
-        $widgetId = $widgetModel->id;
-        $name = $widgetModel->name;
-        $displayTitle = $widgetModel->display_title;
-        $widgetClass = $widgetModel->type;
-
-        $showLoader = method_exists($widgetClass, 'showLoader')
-            ? $widgetClass::showLoader() ?? static::showWidgetLoader()
-            : static::showWidgetLoader();
-
-        return ViewComponent::make('filament-dynamic-dashboard::schemas.widget-wrapper')
-            ->key('widget-wrapper-'.$widgetId)
-            ->viewData([
-                'name' => $name,
-                'displayTitle' => $displayTitle,
-                'canEdit' => static::canEdit(),
-                'isLocked' => $this->currentDashboard?->is_locked ?? false,
-                'showLoader' => $showLoader,
-            ])
-            ->schema([
-                // Actions (first child - rendered in hover container)
-                Actions::make([
-                    Action::make('editWidget_'.$widgetId)
-                        ->icon(Heroicon::OutlinedPencilSquare)
-                        ->iconButton()
-                        ->size(Size::ExtraSmall)
-                        ->color('gray')
-                        ->tooltip(__('filament-dynamic-dashboard::dashboard.edit_widget'))
-                        ->modalHeading(__('filament-dynamic-dashboard::dashboard.edit_widget'))
-                        ->modalWidth(Width::FourExtraLarge)
-                        ->fillForm(fn(): array => [
-                            'widget_id' => $widgetId,
-                            'name' => $widgetModel->name,
-                            'type' => $widgetModel->type,
-                            'columns' => $widgetModel->columns,
-                            'display_title' => $widgetModel->display_title,
-                            'dashboard_grid_block_id' => $widgetModel->effective_grid_block?->id,
-                            'ordering_after' => $this->getPreviousWidgetId($widgetModel),
-                            'settings' => $widgetModel->settings,
-                        ])
-                        ->schema(fn(Schema $schema): Schema => $this->getWidgetFormSchema($schema))
-                        ->action(function (array $data) use ($widgetId): void {
-                            abort_unless(static::canEdit(), 403);
-                            $widget = DashboardWidget::find($widgetId);
-                            $blockId = $data['dashboard_grid_block_id'] ?? $widget->effective_grid_block?->id;
-                            $ordering = $this->calculateOrdering($blockId, $data['ordering_after'] ?? null);
-                            $widget?->update([
-                                'name' => $data['name'],
-                                'type' => $data['type'],
-                                'columns' => $data['columns'] ?? config('filament-dynamic-dashboard.widget_columns', 3),
-                                'display_title' => $data['display_title'] ?? true,
-                                'dashboard_grid_block_id' => $blockId,
-                                'ordering' => $ordering,
-                                'settings' => $data['settings'] ?? [],
-                            ]);
-                            $this->redirect(static::getUrl(), navigate: true);
-                        }),
-                    Action::make('deleteWidget_'.$widgetId)
-                        ->icon(Heroicon::OutlinedTrash)
-                        ->iconButton()
-                        ->size(Size::ExtraSmall)
-                        ->color('danger')
-                        ->tooltip(__('filament-dynamic-dashboard::dashboard.delete_widget'))
-                        ->requiresConfirmation()
-                        ->modalHeading(__('filament-dynamic-dashboard::dashboard.delete_widget'))
-                        ->modalDescription(__('filament-dynamic-dashboard::dashboard.delete_widget_confirmation'))
-                        ->action(function () use ($widgetId): void {
-                            abort_unless(static::canEdit(), 403);
-                            $widget = DashboardWidget::find($widgetId);
-                            $widget?->delete();
-                            $this->redirect(static::getUrl(), navigate: true);
-                        }),
-                ]),
-                // The widget itself (second child - rendered in content area)
-                $widgetComponent,
-            ])
-            ->columnSpan($widgetModel->columns);
-    }
-
-    /**
-     * Get the number of columns for the dashboard grid layout.
-     *
-     * @return int|array<string, int> Column count or responsive breakpoint configuration
-     */
-    public function getColumns(): int|array
-    {
-        return config('filament-dynamic-dashboard.dashboard_columns');
-    }
-
-    /**
      * Build the form schema for creating/editing a widget.
      *
      * The form includes:
      * - Name input with display title toggle
      * - Widget type selector (from discovered DynamicWidget classes)
-     * - Column span slider (1-12)
-     * - Block position selector (if multiple blocks exist)
-     * - Ordering selector (position relative to other widgets)
      * - Dynamic settings section (specific to the selected widget type)
+     *
+     * Size and position are NOT in the form — width/height come from the widget
+     * class's static methods, and (x, y, section) are managed by GridStack on
+     * the canvas. Phase 3 adds an optional section selector for multi-section
+     * templates.
      */
     protected function getWidgetFormSchema(Schema $schema): Schema
     {
@@ -552,36 +500,16 @@ abstract class DynamicDashboard extends Page
                                             ?->fill();
                                     }),
 
-                                Slider::make('columns')
-                                    ->label(__('filament-dynamic-dashboard::dashboard.widget_size'))
-                                    ->range(minValue: 1, maxValue: 12)
-                                    ->step(1)
-                                    ->default(3)
-                                    ->pips(PipsMode::Values, density: 10)
-                                    ->pipsValues([1, 3, 6, 9, 12])
-                                    ->pipsFormatter(RawJs::make("({1: 'XS', 3: 'S', 6: 'M', 9: 'L', 12: 'XL'})[\$value] || \$value"))
-                                    ->required(),
-
-                                Grid::make()->schema([
-                                    Select::make('dashboard_grid_block_id')
-                                        ->label(__('filament-dynamic-dashboard::dashboard.widget_position'))
-                                        ->options(fn(): array => $this->getBlockOptions())
-                                        ->selectablePlaceholder(false)
-                                        //->visible(fn(): bool => $this->hasMultipleBlocks())
-                                        ->live()
-                                        ->afterStateUpdated(fn(Set $set) => $set('ordering_after', null)),
-
-                                    Select::make('ordering_after')
-                                        ->label(__('filament-dynamic-dashboard::dashboard.widget_order'))
-                                        ->options(fn(Get $get): array => $this->getOrderingOptions(
-                                            $get('dashboard_grid_block_id'),
-                                            $get('widget_id')
-                                        ))
-                                        //->visible(fn(Get $get): bool =>
-                                        //    $this->hasOtherWidgetsInBlock($get('dashboard_grid_block_id'), $get('widget_id')))
-                                        ->default(-1)
-                                        ->selectablePlaceholder(false),
-                                ])->dense(),
+                                Select::make('section_slug')
+                                    ->label(__('filament-dynamic-dashboard::dashboard.section'))
+                                    ->options(fn(): array => $this->getTemplateSectionOptions())
+                                    ->default(fn(): ?string => $this->getCurrentDashboard()?->template->sections[0]->slug ?? null)
+                                    // Section is asked for at creation only — once the widget exists, cross-section
+                                    // moves happen via drag-and-drop. `widget_id` is the Hidden field filled by the
+                                    // edit action's mountUsing, so its presence distinguishes edit from create.
+                                    ->visible(fn(Get $get): bool => $this->templateHasMultipleSections() && empty($get('widget_id')))
+                                    ->selectablePlaceholder(false)
+                                    ->required(fn(Get $get): bool => empty($get('widget_id'))),
                             ])
                             ->columns(1)
                             ->columnSpan(1),
@@ -594,6 +522,40 @@ abstract class DynamicDashboard extends Page
                             ->columnSpan(1),
                     ]),
             ]);
+    }
+
+    /**
+     * Get section options for the section selector in the widget form.
+     *
+     * Keyed by slug; value is the localized section name, falling back to
+     * the slug itself when the section has no header.
+     *
+     * @return array<string, string>
+     */
+    protected function getTemplateSectionOptions(): array
+    {
+        $template = $this->getCurrentDashboard()?->template
+            ?? app(TemplateRegistry::class)->default();
+
+        $options = [];
+        foreach ($template->sections as $section) {
+            $options[$section->slug] = $section->name() ?? $section->slug;
+        }
+
+        return $options;
+    }
+
+    /**
+     * Whether the current dashboard's template defines more than one section.
+     *
+     * Drives the visibility of the section Select in the widget form.
+     */
+    protected function templateHasMultipleSections(): bool
+    {
+        $template = $this->getCurrentDashboard()?->template
+            ?? app(TemplateRegistry::class)->default();
+
+        return count($template->sections) > 1;
     }
 
     /**
@@ -643,141 +605,6 @@ abstract class DynamicDashboard extends Page
     }
 
     /**
-     * Get block options for the widget form select.
-     *
-     * @return array<int, string>
-     */
-    protected function getBlockOptions(): array
-    {
-        $grid = $this->currentDashboard?->effective_grid;
-
-        if (!$grid) {
-            return [];
-        }
-
-        $options = [];
-        $this->buildBlockOptionsRecursive($grid->rootBlocks, $options, 0);
-
-        return $options;
-    }
-
-    /**
-     * Build block options recursively with indentation for nesting.
-     *
-     * @param  Collection<int, DashboardGridBlock>  $blocks
-     * @param  array<int, string>  $options
-     */
-    protected function buildBlockOptionsRecursive(Collection $blocks, array &$options, int $depth): void
-    {
-        $indent = str_repeat('— ', $depth);
-
-        foreach ($blocks as $block) {
-            $options[$block->id] = $indent.$block->name;
-
-            if ($block->children->isNotEmpty()) {
-                $this->buildBlockOptionsRecursive($block->children, $options, $depth + 1);
-            }
-        }
-    }
-
-    /**
-     * Check if the grid has multiple blocks configured.
-     */
-    protected function hasMultipleBlocks(?DashboardGrid $grid = null): bool
-    {
-        if (!$grid) {
-            $grid = $this->currentDashboard?->effective_grid;
-        }
-
-        if (!$grid) {
-            return false;
-        }
-
-        return $grid->blocks()->count() > 1;
-    }
-
-    /**
-     * Get ordering options for a specific block.
-     *
-     * @return array<int, string>
-     */
-    protected function getOrderingOptions(?int $blockId, ?int $excludeWidgetId = null): array
-    {
-        $widgets = DashboardWidget::query()->forDashboardAndBlock(
-            $this->currentDashboardId,
-            $blockId??$this->getCurrentDashboard()?->effective_grid?->rootBlocks?->first()?->id,
-            $excludeWidgetId
-        )->get();
-
-        // Start with "First position" option
-        $options = [
-            0 => __('filament-dynamic-dashboard::dashboard.order_first_position'),
-        ];
-
-        // Add "After [widget name]" options
-        foreach ($widgets as $widget) {
-            $options[$widget->id] = __('filament-dynamic-dashboard::dashboard.order_after', ['name' => $widget->name]);
-        }
-
-        // End with "Last position" option
-        $options[-1] = __('filament-dynamic-dashboard::dashboard.order_last_position');
-
-        return $options;
-    }
-
-    /**
-     * Check if block has other widgets (to determine if ordering select should be visible).
-     */
-    protected function hasOtherWidgetsInBlock(?int $blockId, ?int $excludeWidgetId = null): bool
-    {
-        return DashboardWidget::query()->forDashboardAndBlock(
-            $this->currentDashboardId,
-            $blockId??$this->getCurrentDashboard()?->effective_grid?->rootBlocks?->first()?->id,
-            $excludeWidgetId
-        )->exists();
-    }
-
-    /**
-     * Calculate the ordering value based on the selected "ordering_after" widget.
-     */
-    protected function calculateOrdering(?int $blockId, ?int $orderingAfterWidgetId): int
-    {
-        // First position (0 = "First position" option)
-        if ($orderingAfterWidgetId === 0) {
-            return 1;
-        }
-
-        // Last position (-1 = "Last position" option, or null for backwards compatibility)
-        if ($orderingAfterWidgetId === -1 || $orderingAfterWidgetId === null) {
-            return DashboardWidget::maxOrderingInBlock($this->currentDashboardId, $blockId) + 1;
-        }
-
-        // After specific widget
-        $afterWidget = DashboardWidget::find($orderingAfterWidgetId);
-        if (!$afterWidget) {
-            return 1;
-        }
-
-        return $afterWidget->ordering + 1;
-    }
-
-    /**
-     * Get the widget that comes before the given widget in the same block.
-     * Returns 0 (first position) if the widget is first in its block.
-     */
-    protected function getPreviousWidgetId(DashboardWidget $widget): int
-    {
-        $previousWidget = DashboardWidget::previousInBlock(
-            $widget->dashboard_id,
-            $widget->dashboard_grid_block_id,
-            $widget->ordering
-        );
-
-        // Return 0 for "first position" if no previous widget
-        return $previousWidget?->id ?? 0;
-    }
-
-    /**
      * @param  class-string<DynamicWidget>|null  $type
      * @return array<Component>
      */
@@ -801,117 +628,6 @@ abstract class DynamicDashboard extends Page
         }
 
         return count($type::getSettingsFormSchema()) > 0;
-    }
-
-    /**
-     * Build the widget grid layout using pre-grouped widgets.
-     *
-     * @param  array<string, array<Component>>  $widgetsByBlock  Widgets already grouped by block slug
-     */
-    public function widgetsGrid(array $widgetsByBlock): Component
-    {
-        $grid = $this->currentDashboard?->effective_grid;
-
-        if (!$grid) {
-            // Backward compatible fallback - flatten and use simple grid
-            $allWidgets = [];
-            foreach ($widgetsByBlock as $widgets) {
-                $allWidgets = array_merge($allWidgets, $widgets);
-            }
-            return Grid::make($this->getColumns())->schema($allWidgets);
-        }
-        // Reassign widgets with non-existent blocks to the first root block
-        $rootBlocks = $grid->rootBlocks;
-        $firstBlockSlug = $rootBlocks->first()?->slug;
-
-        if ($firstBlockSlug !== null) {
-            $validSlugs = $this->getAllBlockSlugs($rootBlocks);
-
-            foreach ($widgetsByBlock as $slug => $widgets) {
-                if (!in_array($slug, $validSlugs, true)) {
-                    // Move orphaned widgets to first block
-                    if (!isset($widgetsByBlock[$firstBlockSlug])) {
-                        $widgetsByBlock[$firstBlockSlug] = [];
-                    }
-                    $widgetsByBlock[$firstBlockSlug] = array_merge(
-                        $widgetsByBlock[$firstBlockSlug],
-                        $widgets
-                    );
-                    unset($widgetsByBlock[$slug]);
-                }
-            }
-        }
-
-        // Build nested block structure recursively
-        $blockComponents = $this->buildBlockComponents($rootBlocks, $widgetsByBlock);
-
-        return Grid::make($this->getColumns())->schema($blockComponents)->dense();
-    }
-
-    /**
-     * Build component tree for blocks recursively.
-     *
-     * @param  Collection<int, DashboardGridBlock>  $blocks
-     * @param  array<int, array<Component>>  $widgetsByBlock
-     * @return array<Component>
-     */
-    protected function buildBlockComponents(Collection $blocks, array $widgetsByBlock): array
-    {
-        $components = [];
-
-        foreach ($blocks as $block) {
-            $blockSlug = $block->slug;
-            $children = $block->children;
-            $blockWidgets = $widgetsByBlock[$blockSlug] ?? [];
-
-            // Build schema: widgets first, then children
-            $blockSchema = [];
-
-            // Add widgets to schema (they appear above/before children)
-            if (!empty($blockWidgets)) {
-                $blockSchema = array_merge($blockSchema, $blockWidgets);
-            }
-
-            // Add child block components to schema (they appear below/after widgets)
-            if ($children->isNotEmpty()) {
-                $childComponents = $this->buildBlockComponents($children, $widgetsByBlock);
-                $blockSchema = array_merge($blockSchema, $childComponents);
-            }
-
-            // Create the block's Grid component
-            if (!empty($blockSchema)) {
-                // Block has content (widgets and/or children)
-                $components[] = Grid::make($block->columns)
-                    ->schema($blockSchema)
-                    ->columnSpan($block->columns);
-            } else {
-                // Empty block - respect display_empty setting
-                $components[] = Grid::make($block->columns)
-                    ->schema([])
-                    ->columnSpan($block->columns)
-                    ->visible($block->display_empty);
-            }
-        }
-
-        return $components;
-    }
-
-    /**
-     * Get all block slugs from a grid (including nested blocks).
-     *
-     * @param  Collection<int, DashboardGridBlock>  $blocks
-     * @return array<string>
-     */
-    protected function getAllBlockSlugs(Collection $blocks): array
-    {
-        $slugs = [];
-        foreach ($blocks as $block) {
-            $slugs[] = $block->slug;
-            if ($block->children->isNotEmpty()) {
-                $slugs = array_merge($slugs, $this->getAllBlockSlugs($block->children));
-            }
-        }
-        return $slugs;
     }
 
     /**
@@ -990,13 +706,23 @@ abstract class DynamicDashboard extends Page
     }
 
     /**
-     * Handle dashboard list changed event from DashboardManager component.
+     * Handle dashboard list changed event from the DashboardManager component.
+     *
+     * Reloads the cached dashboard so canEdit/`is_locked`-driven UI bits
+     * (heading, Add Widget button, Manage entry) re-evaluate on the morph,
+     * then dispatches a JS event so Alpine can flip GridStack's static mode
+     * and toggle the `is-readonly` canvas class — the `.grid-stack` divs
+     * carry `wire:ignore`, so a Livewire morph alone won't reach them.
      */
     #[On('dashboard-list-changed')]
     public function onDashboardListChanged(): void
     {
-        // Reload dashboard data to update heading/subheadin
         $this->loadCurrentDashboard();
+
+        $this->dispatch(
+            'dynamic-dashboard:editable-changed',
+            editable: static::canEdit() && ! ($this->currentDashboard?->is_locked ?? false),
+        );
     }
 
     /**
@@ -1038,23 +764,38 @@ abstract class DynamicDashboard extends Page
     /**
      * Create a new widget from form data.
      *
-     * Calculates the ordering based on the selected position and persists the widget.
+     * Width/height come from the widget class's static defaults; the widget is
+     * placed in the first section of the current template at the bottom of
+     * the existing widgets.
      *
-     * @param  array<string, mixed>  $data  Form data containing name, type, columns, settings, etc.
+     * @param  array<string, mixed>  $data  Form data containing name, type, display_title, settings.
      */
     protected function createWidget(array $data): void
     {
-        $blockId = $data['dashboard_grid_block_id'] ?? $this->getCurrentDashboard()?->effective_grid?->rootBlocks?->first()->id;
-        $ordering = $this->calculateOrdering($blockId, $data['ordering_after'] ?? null);
+        abort_unless(static::canEdit(), 403);
+
+        /** @var class-string<DynamicWidget> $type */
+        $type = $data['type'];
+
+        $template = $this->getCurrentDashboard()?->template
+            ?? app(TemplateRegistry::class)->default();
+        $sectionSlug = $data['section_slug'] ?? $template->sections[0]->slug;
+
+        $maxY = DashboardWidget::query()
+            ->where('dashboard_id', $this->currentDashboardId)
+            ->where('section_slug', $sectionSlug)
+            ->max('y') ?? -1;
 
         DashboardWidget::create([
             'dashboard_id' => $this->currentDashboardId,
-            'dashboard_grid_block_id' => $blockId,
             'name' => $data['name'],
-            'type' => $data['type'],
-            'columns' => $data['columns'] ?? config('filament-dynamic-dashboard.widget_columns', 3),
+            'type' => $type,
+            'section_slug' => $sectionSlug,
+            'x' => 0,
+            'y' => $maxY + 1,
+            'w' => $type::getDynamicDashboardDefaultWidth(),
+            'h' => $type::getDynamicDashboardDefaultHeight(),
             'display_title' => $data['display_title'] ?? true,
-            'ordering' => $ordering,
             'settings' => $data['settings'] ?? [],
         ]);
 
@@ -1065,25 +806,43 @@ abstract class DynamicDashboard extends Page
      * Create the dashboard selector dropdown action group.
      *
      * Displays a dropdown with:
-     * - All displayable dashboards (with checkmark on current)
+     * - Global dashboards first (no icon)
+     * - A visual separator (nested non-dropdown ActionGroup)
+     * - Personal dashboards next (each prefixed with a user icon)
      * - "Manage" option to open the dashboard manager slideover (if user can edit)
+     *
+     * The selected dashboard always shows the green check icon, even when it's
+     * personal — selection state takes priority over the personal indicator.
      */
     protected function getDashboardSelectorActionGroup(): ActionGroup
     {
         $dashboards = $this->getDisplayableDashboards();
         $currentDashboard = $this->getCurrentDashboard();
 
-        $actions = [];
-        // Add an action for each dashboard
+        $globalActions = [];
+        $personalActions = [];
+
         foreach ($dashboards as $dashboard) {
-            $actions[] = Action::make('selectDashboard_'.$dashboard->id)
+            $isCurrent = $dashboard->id === $this->currentDashboardId;
+
+            $action = Action::make('selectDashboard_'.$dashboard->id)
                 ->label($dashboard->name)
-                ->icon($dashboard->id === $this->currentDashboardId ? Heroicon::OutlinedCheck : null)
-                ->color($dashboard->id === $this->currentDashboardId ? Color::Green : null)
+                ->icon(match (true) {
+                    $isCurrent => Heroicon::OutlinedCheck,
+                    $dashboard->is_personal => Heroicon::OutlinedUser,
+                    default => null,
+                })
+                ->color($isCurrent ? Color::Green : null)
                 ->action(function () use ($dashboard): void {
                     $this->currentDashboardId = $dashboard->id;
                     $this->redirect(static::getUrl(), navigate: true);
                 });
+
+            if ($dashboard->is_personal) {
+                $personalActions[] = $action;
+            } else {
+                $globalActions[] = $action;
+            }
         }
 
         // Add manage action with separator
@@ -1101,10 +860,16 @@ abstract class DynamicDashboard extends Page
             ->modalCancelAction(false)
             ->visible(static::canEdit());
 
-        return ActionGroup::make([
-            ActionGroup::make($actions)->dropdown(false),
+        // Each nested non-dropdown ActionGroup renders as its own visual section,
+        // giving the global/personal separator for free. Empty groups are filtered
+        // out so users without personal dashboards don't see an empty section.
+        $groups = array_filter([
+            $globalActions !== [] ? ActionGroup::make($globalActions)->dropdown(false) : null,
+            $personalActions !== [] ? ActionGroup::make($personalActions)->dropdown(false) : null,
             $manageAction,
-        ])
+        ]);
+
+        return ActionGroup::make($groups)
             ->label($currentDashboard?->name ?? __('filament-dynamic-dashboard::dashboard.select_dashboard'))
             ->icon(Heroicon::OutlinedViewColumns)
             ->color('gray')
@@ -1123,5 +888,114 @@ abstract class DynamicDashboard extends Page
         }
 
         return $this->currentDashboard;
+    }
+
+    /**
+     * Page-level Filament Action for editing a widget by ID.
+     *
+     * Mounted from the Blade wrapper via `$wire.mountAction('editWidget', { widget: <id> })`.
+     * The widget id is carried via a Hidden field in the form so the submit handler
+     * knows what to update.
+     */
+    public function editWidgetAction(): Action
+    {
+        return Action::make('editWidget')
+            ->modalHeading(__('filament-dynamic-dashboard::dashboard.edit_widget'))
+            ->modalWidth(Width::FourExtraLarge)
+            ->modalFooterActionsAlignment(Alignment::End)
+            ->mountUsing(function (Schema $schema, array $arguments): void {
+                $widget = DashboardWidget::find($arguments['widget'] ?? null);
+
+                if (! $widget) {
+                    return;
+                }
+
+                // section_slug is intentionally NOT filled — the section field is
+                // hidden in edit mode. Cross-section moves are drag-only.
+                $schema->fill([
+                    'widget_id' => $widget->id,
+                    'name' => $widget->name,
+                    'type' => $widget->type,
+                    'display_title' => $widget->display_title,
+                    'settings' => $widget->settings,
+                ]);
+            })
+            ->schema(fn (Schema $schema): Schema => $this->getWidgetFormSchema($schema))
+            ->action(function (array $data): void {
+                abort_unless(static::canEdit(), 403);
+
+                $widget = DashboardWidget::find($data['widget_id'] ?? null);
+                $widget?->update([
+                    'name' => $data['name'],
+                    'type' => $data['type'],
+                    'display_title' => $data['display_title'] ?? true,
+                    'settings' => $data['settings'] ?? [],
+                ]);
+
+                $this->redirect(static::getUrl(), navigate: true);
+            });
+    }
+
+    /**
+     * Page-level Filament Action for deleting a widget by ID.
+     *
+     * Mounted from the Blade wrapper via `$wire.mountAction('deleteWidget', { widget: <id> })`.
+     */
+    public function deleteWidgetAction(): Action
+    {
+        return Action::make('deleteWidget')
+            ->requiresConfirmation()
+            ->modalHeading(__('filament-dynamic-dashboard::dashboard.delete_widget'))
+            ->modalDescription(__('filament-dynamic-dashboard::dashboard.delete_widget_confirmation'))
+            ->action(function (array $arguments): void {
+                abort_unless(static::canEdit(), 403);
+
+                $widget = DashboardWidget::find($arguments['widget'] ?? null);
+                $widget?->delete();
+
+                $this->redirect(static::getUrl(), navigate: true);
+            });
+    }
+
+    /**
+     * Persist widget positions after a GridStack drag, resize, or cross-section drop.
+     *
+     * Called from Alpine via `$wire.call('persistLayout', [...])`. Each item is
+     * `{id, section, x, y, w, h}`. Updates are scoped to the current dashboard so
+     * a malicious payload can't move another dashboard's widgets.
+     *
+     * Marked `#[Renderless]` so the call hits the DB but skips Livewire's
+     * re-render — without this, the post-call morph would clobber GridStack's
+     * runtime DOM state and visually reset every widget.
+     *
+     * @param  array<int, array<string, mixed>>  $items
+     * @throws Throwable
+     */
+    #[Renderless]
+    public function persistLayout(array $items): void
+    {
+        abort_unless(
+            static::canEdit() && ! ($this->getCurrentDashboard()?->is_locked ?? false),
+            403
+        );
+
+        DB::transaction(function () use ($items): void {
+            foreach ($items as $item) {
+                if (! isset($item['id'], $item['section'], $item['x'], $item['y'], $item['w'], $item['h'])) {
+                    continue;
+                }
+
+                DashboardWidget::query()
+                    ->where('id', (int) $item['id'])
+                    ->where('dashboard_id', $this->currentDashboardId)
+                    ->update([
+                        'section_slug' => (string) $item['section'],
+                        'x' => (int) $item['x'],
+                        'y' => (int) $item['y'],
+                        'w' => (int) $item['w'],
+                        'h' => (int) $item['h'],
+                    ]);
+            }
+        });
     }
 }

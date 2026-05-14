@@ -1,0 +1,26 @@
+{
+  "key": "3-columns",
+  "name": "filament-dynamic-dashboard::templates.three_columns.name",
+  "description": "filament-dynamic-dashboard::templates.three_columns.description",
+  "columns": 12,
+  "sections": [
+    {
+      "slug": "left",
+      "name": "filament-dynamic-dashboard::templates.three_columns.left",
+      "columns": 4,
+      "row_height": 80
+    },
+    {
+      "slug": "middle",
+      "name": "filament-dynamic-dashboard::templates.three_columns.middle",
+      "columns": 4,
+      "row_height": 80
+    },
+    {
+      "slug": "right",
+      "name": "filament-dynamic-dashboard::templates.three_columns.right",
+      "columns": 4,
+      "row_height": 80
+    }
+  ]
+}

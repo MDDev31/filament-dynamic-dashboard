@@ -1,0 +1,20 @@
+{
+  "key": "sidebar-main",
+  "name": "filament-dynamic-dashboard::templates.sidebar_main.name",
+  "description": "filament-dynamic-dashboard::templates.sidebar_main.description",
+  "columns": 12,
+  "sections": [
+    {
+      "slug": "sidebar",
+      "name": "filament-dynamic-dashboard::templates.sidebar_main.sidebar",
+      "columns": 4,
+      "row_height": 80
+    },
+    {
+      "slug": "main",
+      "name": "filament-dynamic-dashboard::templates.sidebar_main.main",
+      "columns": 8,
+      "row_height": 80
+    }
+  ]
+}
