@@ -2,6 +2,14 @@
 
 All notable changes to `filament-dynamic-dashboard` will be documented in this file.
 
+## [1.0.2] - 2026-05-14
+
+### Fixed
+- Page filters no longer reached widgets after the GridStack rewrite — the page's active filters are now passed into every widget at mount (`pageFilters`)
+
+### Added
+- `InteractsWithDashboardFilters` trait — wraps Filament's `InteractsWithPageFilters` and keeps `$this->pageFilters` in sync with live filter-bar changes through the GridStack `wire:ignore` region
+
 ## [1.0.1] - 2026-05-14
 
 ### Changed

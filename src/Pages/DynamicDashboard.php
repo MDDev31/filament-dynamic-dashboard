@@ -342,6 +342,11 @@ abstract class DynamicDashboard extends Page
             ->viewData([
                 'template' => $template,
                 'widgetsBySection' => $this->buildWidgetsViewData($template),
+                // Mirrors standard Filament: every widget is mounted with the page's
+                // current filters under `pageFilters`, so widgets using
+                // InteractsWithPageFilters / InteractsWithDashboardFilters get the
+                // active values at mount time.
+                'pageFilters' => $this->filters ?? [],
                 // canEdit = user permission (decides whether action chrome ever renders).
                 // canDrag = canEdit AND ! is_locked (decides GridStack static mode and
                 // the `is-readonly` canvas class that hides the action chrome via CSS).
@@ -636,6 +641,33 @@ abstract class DynamicDashboard extends Page
     public function resetFilters(): void
     {
         $this->applyDefaultFilters();
+        $this->dispatchFiltersUpdated();
+    }
+
+    /**
+     * Persist filters to the dashboard-scoped session key, then notify widgets.
+     *
+     * Extends the HasFilters trait hook: dashboard widgets render inside the
+     * GridStack `wire:ignore` region, so a page morph never reaches them — the
+     * dispatched event lets them refresh themselves.
+     */
+    public function updatedFilters(): void
+    {
+        if ($this->persistsFiltersInSession()) {
+            session()->put($this->getFiltersSessionKey(), $this->filters);
+        }
+
+        $this->dispatchFiltersUpdated();
+    }
+
+    /**
+     * Broadcast the active filters so dashboard widgets can re-render.
+     *
+     * Widgets opt in via the InteractsWithDashboardFilters trait.
+     */
+    protected function dispatchFiltersUpdated(): void
+    {
+        $this->dispatch('dynamic-dashboard:filters-updated', filters: $this->filters ?? []);
     }
 
     /**

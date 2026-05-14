@@ -2,6 +2,7 @@
     $widgetsBySection = $widgetsBySection ?? [];
     $canEdit = $canEdit ?? false;
     $canDrag = $canDrag ?? false;
+    $pageFilters = $pageFilters ?? [];
 @endphp
 
 <div
@@ -42,6 +43,7 @@
                                 'widget' => $widget,
                                 'canEdit' => $canEdit,
                                 'showLoader' => $widget['showLoader'] ?? true,
+                                'pageFilters' => $pageFilters,
                             ])
                         </div>
                     </div>

@@ -1,6 +1,7 @@
 @php
     $canEdit = $canEdit ?? false;
     $showLoader = $showLoader ?? true;
+    $pageFilters = $pageFilters ?? [];
 @endphp
 
 <div
@@ -67,6 +68,7 @@
                 [
                     'dynamicDashboardWidgetId' => $widget['id'],
                     'dynamicDashboardWidgetTitle' => $widget['name'],
+                    'pageFilters' => $pageFilters,
                 ],
                 $widget['settings'] ?? []
             ),

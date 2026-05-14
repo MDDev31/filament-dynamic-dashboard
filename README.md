@@ -201,6 +201,7 @@ Any Filament widget can become a dynamic widget by implementing the `DynamicWidg
 |----------------------------------------------------|--------------------------------------------------------------------------------------------------------|
 | `MDDev\DynamicDashboard\Concerns\HasSizeDefaults`  | Sensible defaults for all six size methods (default 4×1, min 1×1, max 12×12). Override only what you constrain. |
 | `MDDev\DynamicDashboard\Concerns\HasEmptySettings` | Empty `getSettingsFormSchema()` and `getSettingsCasts()` for widgets without configurable settings.   |
+| `MDDev\DynamicDashboard\Concerns\InteractsWithDashboardFilters` | Wraps Filament's `InteractsWithPageFilters`. Use it instead of `InteractsWithPageFilters` for filter-aware widgets — see [Accessing filters in widgets](#accessing-filters-in-widgets). |
 
 ### Simple widget (no settings, default size)
 
@@ -707,14 +708,14 @@ public static function resolveFilterDefaults(array $defaults): array
 
 ### Accessing filters in widgets
 
-Use Filament's `InteractsWithPageFilters` trait:
+Use the package's `InteractsWithDashboardFilters` trait:
 
 ```php
-use Filament\Widgets\Concerns\InteractsWithPageFilters;
+use MDDev\DynamicDashboard\Concerns\InteractsWithDashboardFilters;
 
 class MyWidget extends StatsOverviewWidget implements DynamicWidget
 {
-    use InteractsWithPageFilters;
+    use InteractsWithDashboardFilters;
 
     protected function getStats(): array
     {
@@ -723,6 +724,7 @@ class MyWidget extends StatsOverviewWidget implements DynamicWidget
     }
 }
 ```
+
 
 ### Resetting filters
 

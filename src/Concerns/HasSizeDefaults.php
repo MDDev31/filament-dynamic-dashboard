@@ -23,7 +23,7 @@ trait HasSizeDefaults
     /** @inheritDoc */
     public static function getDynamicDashboardDefaultHeight(): int
     {
-        return 1;
+        return 2;
     }
 
     /** @inheritDoc */
