@@ -344,8 +344,7 @@ abstract class DynamicDashboard extends Page
                 'widgetsBySection' => $this->buildWidgetsViewData($template),
                 // Mirrors standard Filament: every widget is mounted with the page's
                 // current filters under `pageFilters`, so widgets using
-                // InteractsWithPageFilters / InteractsWithDashboardFilters get the
-                // active values at mount time.
+                // InteractsWithPageFilters get the active values at mount time.
                 'pageFilters' => $this->filters ?? [],
                 // canEdit = user permission (decides whether action chrome ever renders).
                 // canDrag = canEdit AND ! is_locked (decides GridStack static mode and
@@ -663,7 +662,9 @@ abstract class DynamicDashboard extends Page
     /**
      * Broadcast the active filters so dashboard widgets can re-render.
      *
-     * Widgets opt in via the InteractsWithDashboardFilters trait.
+     * The package's `dashboard.js` listens for this event and pushes the
+     * filters into each widget using Filament's `InteractsWithPageFilters`,
+     * since widgets sit inside the GridStack `wire:ignore` region.
      */
     protected function dispatchFiltersUpdated(): void
     {

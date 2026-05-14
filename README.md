@@ -201,7 +201,6 @@ Any Filament widget can become a dynamic widget by implementing the `DynamicWidg
 |----------------------------------------------------|--------------------------------------------------------------------------------------------------------|
 | `MDDev\DynamicDashboard\Concerns\HasSizeDefaults`  | Sensible defaults for all six size methods (default 4×1, min 1×1, max 12×12). Override only what you constrain. |
 | `MDDev\DynamicDashboard\Concerns\HasEmptySettings` | Empty `getSettingsFormSchema()` and `getSettingsCasts()` for widgets without configurable settings.   |
-| `MDDev\DynamicDashboard\Concerns\InteractsWithDashboardFilters` | Wraps Filament's `InteractsWithPageFilters`. Use it instead of `InteractsWithPageFilters` for filter-aware widgets — see [Accessing filters in widgets](#accessing-filters-in-widgets). |
 
 ### Simple widget (no settings, default size)
 
@@ -708,14 +707,14 @@ public static function resolveFilterDefaults(array $defaults): array
 
 ### Accessing filters in widgets
 
-Use the package's `InteractsWithDashboardFilters` trait:
+Use Filament's `InteractsWithPageFilters` trait:
 
 ```php
-use MDDev\DynamicDashboard\Concerns\InteractsWithDashboardFilters;
+use Filament\Widgets\Concerns\InteractsWithPageFilters;
 
 class MyWidget extends StatsOverviewWidget implements DynamicWidget
 {
-    use InteractsWithDashboardFilters;
+    use InteractsWithPageFilters;
 
     protected function getStats(): array
     {
@@ -725,6 +724,7 @@ class MyWidget extends StatsOverviewWidget implements DynamicWidget
 }
 ```
 
+The widget receives the active filter values as `$this->pageFilters` at mount, and the dashboard keeps them in sync automatically when the user edits a filter or resets the filter bar — no extra wiring needed.
 
 ### Resetting filters
 
