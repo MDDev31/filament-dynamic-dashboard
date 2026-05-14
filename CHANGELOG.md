@@ -5,7 +5,7 @@ All notable changes to `filament-dynamic-dashboard` will be documented in this f
 ## [1.0.2] - 2026-05-14
 
 ### Fixed
-- Page filters no longer reached widgets after the GridStack rewrite. Widgets using Filament's `InteractsWithPageFilters` trait now receive the active filters at mount and on every live filter-bar change (edit or reset). Re-run `php artisan filament:assets` after updating.
+- Page filters were not reaching widgets after the GridStack rewrite. Widgets using Filament's `InteractsWithPageFilters` trait now receive the active filters at mount and on every live filter-bar change (edit or reset).
 
 ## [1.0.1] - 2026-05-14
 
