@@ -338,6 +338,8 @@ abstract class DynamicDashboard extends Page
         $canEdit = static::canEdit();
         $canDrag = $canEdit && ! ($this->currentDashboard?->is_locked ?? false);
 
+        logger()->info('[DD-DIAG] getWidgetsContentComponent', ['filters' => $this->filters]);
+
         return ViewComponent::make('filament-dynamic-dashboard::livewire.dashboard-grid')
             ->viewData([
                 'template' => $template,
@@ -652,6 +654,8 @@ abstract class DynamicDashboard extends Page
      */
     public function updatedFilters(): void
     {
+        logger()->info('[DD-DIAG] updatedFilters', ['filters' => $this->filters]);
+
         if ($this->persistsFiltersInSession()) {
             session()->put($this->getFiltersSessionKey(), $this->filters);
         }
@@ -668,6 +672,8 @@ abstract class DynamicDashboard extends Page
      */
     protected function dispatchFiltersUpdated(): void
     {
+        logger()->info('[DD-DIAG] dispatchFiltersUpdated', ['filters' => $this->filters]);
+
         $this->dispatch('dynamic-dashboard:filters-updated', filters: $this->filters ?? []);
     }
 
