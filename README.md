@@ -1,6 +1,6 @@
 # Filament Dynamic Dashboard
 
-End-user-configurable dashboards for Filament v4+ — drag, resize, and move widgets across named sections, with layouts defined as plain JSON files.
+End-user-configurable dashboards for Filament v4/5 — drag, resize, and move widgets across named sections, with layouts defined as plain JSON files.
 
 [![PHP 8.3+](https://img.shields.io/badge/PHP-8.3%2B-blue)](https://www.php.net/)
 [![Filament 4/5](https://img.shields.io/badge/Filament-4%20%7C%205-orange)](https://filamentphp.com/)
@@ -33,7 +33,7 @@ Built for Filament v4+, Laravel 10+, and powered by [GridStack.js](https://grids
 
 - PHP >= 8.3
 - Filament >= 4.1.10 (Filament 5 supported)
-- Laravel 10, 11, or 12
+- Laravel 10/11/12/13 
 - (Optional) `spatie/laravel-permission` for role-based visibility
 
 ## Installation
