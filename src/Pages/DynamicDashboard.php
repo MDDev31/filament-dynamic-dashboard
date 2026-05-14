@@ -338,15 +338,18 @@ abstract class DynamicDashboard extends Page
         $canEdit = static::canEdit();
         $canDrag = $canEdit && ! ($this->currentDashboard?->is_locked ?? false);
 
-        logger()->info('[DD-DIAG] getWidgetsContentComponent', ['filters' => $this->filters]);
-
         return ViewComponent::make('filament-dynamic-dashboard::livewire.dashboard-grid')
-            ->viewData([
+            // viewData is a Closure so it is evaluated at render time, not when
+            // this component is built. Livewire builds the page schema before it
+            // applies an incoming filter update, so a static array would capture a
+            // stale `$this->filters` (one update behind); the Closure reads it
+            // after the update, keeping `pageFilters` current for every widget.
+            ->viewData(fn (): array => [
                 'template' => $template,
                 'widgetsBySection' => $this->buildWidgetsViewData($template),
                 // Mirrors standard Filament: every widget is mounted with the page's
                 // current filters under `pageFilters`, so widgets using
-                // InteractsWithPageFilters get the active values at mount time.
+                // InteractsWithPageFilters get the active values.
                 'pageFilters' => $this->filters ?? [],
                 // canEdit = user permission (decides whether action chrome ever renders).
                 // canDrag = canEdit AND ! is_locked (decides GridStack static mode and
@@ -642,39 +645,6 @@ abstract class DynamicDashboard extends Page
     public function resetFilters(): void
     {
         $this->applyDefaultFilters();
-        $this->dispatchFiltersUpdated();
-    }
-
-    /**
-     * Persist filters to the dashboard-scoped session key, then notify widgets.
-     *
-     * Extends the HasFilters trait hook: dashboard widgets render inside the
-     * GridStack `wire:ignore` region, so a page morph never reaches them — the
-     * dispatched event lets them refresh themselves.
-     */
-    public function updatedFilters(): void
-    {
-        logger()->info('[DD-DIAG] updatedFilters', ['filters' => $this->filters]);
-
-        if ($this->persistsFiltersInSession()) {
-            session()->put($this->getFiltersSessionKey(), $this->filters);
-        }
-
-        $this->dispatchFiltersUpdated();
-    }
-
-    /**
-     * Broadcast the active filters so dashboard widgets can re-render.
-     *
-     * The package's `dashboard.js` listens for this event and pushes the
-     * filters into each widget using Filament's `InteractsWithPageFilters`,
-     * since widgets sit inside the GridStack `wire:ignore` region.
-     */
-    protected function dispatchFiltersUpdated(): void
-    {
-        logger()->info('[DD-DIAG] dispatchFiltersUpdated', ['filters' => $this->filters]);
-
-        $this->dispatch('dynamic-dashboard:filters-updated', filters: $this->filters ?? []);
     }
 
     /**

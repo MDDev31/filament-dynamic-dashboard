@@ -21,32 +21,6 @@ document.addEventListener('alpine:init', () => {
                     const data = Array.isArray(payload) ? payload[0] : payload;
                     this.setEditable(Boolean(data?.editable));
                 });
-
-                // Live filter changes. The page broadcasts its active filters
-                // on every filter-bar edit and on reset. Widgets render inside
-                // a `wire:ignore` grid, so Livewire's reactive propagation can't
-                // reach them — push the filters into each widget component and
-                // let it re-render itself (its own commit isn't blocked by the
-                // ancestor `wire:ignore`).
-                window.Livewire.on('dynamic-dashboard:filters-updated', (payload) => {
-                    const data = Array.isArray(payload) ? payload[0] : payload;
-                    const filters = data?.filters ?? {};
-                    console.log('[DD-DIAG] event', { payload, filters });
-
-                    this.$el.querySelectorAll('[wire\\:id]').forEach((el) => {
-                        const id = el.getAttribute('wire:id');
-                        const component = window.Livewire.find(id);
-
-                        // Only widgets using InteractsWithPageFilters expose `pageFilters`.
-                        if (component && component.$wire.pageFilters !== undefined) {
-                            const before = JSON.stringify(component.$wire.pageFilters);
-                            console.log('[DD-DIAG] widget', id, 'before', before);
-                            Promise.resolve(component.$wire.set('pageFilters', filters)).then(() => {
-                                console.log('[DD-DIAG] widget', id, 'after', JSON.stringify(component.$wire.pageFilters));
-                            });
-                        }
-                    });
-                });
             }
         },
 

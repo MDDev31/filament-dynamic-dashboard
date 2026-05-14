@@ -62,7 +62,6 @@
     @endif
 
     <div class="dashboard-widget-body">
-        @php logger()->info('[DD-DIAG] widget-wrapper', ['id' => $widget['id'], 'pageFilters' => $pageFilters]); @endphp
         @livewire(
             $widget['type'],
             array_merge(
