@@ -3,7 +3,7 @@
 return [
     'flat_12' => [
         'name' => 'Standard',
-        'description' => '12 kolumner, radhöjd 80 px. Vettig standard för de flesta paneler.',
+        'description' => '12 kolumner, radhöjd 80px . Vettig standard för de flesta paneler.',
     ],
     'two_columns' => [
         'name' => 'Duo',

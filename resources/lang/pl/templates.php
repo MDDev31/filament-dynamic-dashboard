@@ -3,7 +3,7 @@
 return [
     'flat_12' => [
         'name' => 'Standardowy',
-        'description' => '12 kolumn, wysokość wiersza 80 px. Rozsądna wartość domyślna dla większości pulpitów.',
+        'description' => '12 kolumn, wysokość wiersza 80px . Rozsądna wartość domyślna dla większości pulpitów.',
     ],
     'two_columns' => [
         'name' => 'Duet',

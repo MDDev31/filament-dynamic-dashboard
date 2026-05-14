@@ -3,7 +3,7 @@
 return [
     'flat_12' => [
         'name' => 'Standard',
-        'description' => '12 coloane, rând de 80 px. Implicit potrivit pentru majoritatea panourilor.',
+        'description' => '12 coloane, rând de 80px . Implicit potrivit pentru majoritatea panourilor.',
     ],
     'two_columns' => [
         'name' => 'Duo',

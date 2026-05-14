@@ -3,7 +3,7 @@
 return [
     'flat_12' => [
         'name' => 'Standardní',
-        'description' => '12 sloupců, výška řádku 80 px. Rozumné výchozí nastavení pro většinu nástěnek.',
+        'description' => '12 sloupců, výška řádku 80px . Rozumné výchozí nastavení pro většinu nástěnek.',
     ],
     'two_columns' => [
         'name' => 'Duo',

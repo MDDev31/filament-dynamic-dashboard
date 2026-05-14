@@ -3,7 +3,7 @@
 return [
     'flat_12' => [
         'name' => 'Standard',
-        'description' => '12 Spalten, 80 px Zeilenhöhe. Sinnvoller Standard für die meisten Dashboards.',
+        'description' => '12 Spalten, 80px  Zeilenhöhe. Sinnvoller Standard für die meisten Dashboards.',
     ],
     'two_columns' => [
         'name' => 'Duo',

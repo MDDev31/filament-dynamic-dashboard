@@ -234,11 +234,11 @@
 }
 
 /* The body now provides the card chrome — neutralize Filament's own section
- * chrome so we don't render two stacked cards. Content padding
- * (`.fi-section-content`) and the header-to-content separator
- * (`.fi-section-content-ctn` border-top) live on different selectors and are
- * intentionally NOT stripped — they still provide useful visual rhythm. */
+ * chrome so we don't render two stacked cards.
+ */
 .dashboard-widget-body .fi-section,
+.dashboard-widget-body .fi-wi-stats-overview-stat,
+.dashboard-widget-body .fi-ta-ctn,
 .dashboard-widget-body .fi-section.fi-secondary,
 .dashboard-widget-body .fi-section.fi-aside > .fi-section-content-ctn {
     background-color: transparent;

@@ -3,7 +3,7 @@
 return [
     'flat_12' => [
         'name' => 'Padrão',
-        'description' => '12 colunas, linha de 80 px. Padrão sensato para a maioria dos painéis.',
+        'description' => '12 colunas, linha de 80px . Padrão sensato para a maioria dos painéis.',
     ],
     'two_columns' => [
         'name' => 'Duo',

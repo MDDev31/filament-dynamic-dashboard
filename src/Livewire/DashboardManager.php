@@ -286,9 +286,17 @@ class DashboardManager extends LivewireComponent implements HasActions, HasForms
      */
     protected function getTemplateOptions(): array
     {
-        return collect(app(TemplateRegistry::class)->enabled())
+        $defaultKey = config('filament-dynamic-dashboard.default_template', 'flat-12');
+
+        $options = collect(app(TemplateRegistry::class)->enabled())
             ->mapWithKeys(fn ($template) => [$template->key => $template->name()])
-            ->all();
+            ->sort(SORT_NATURAL | SORT_FLAG_CASE);
+
+        if ($options->has($defaultKey)) {
+            $options = collect([$defaultKey => $options->get($defaultKey)])->union($options);
+        }
+
+        return $options->all();
     }
 
     /**

@@ -3,7 +3,7 @@
 return [
     'flat_12' => [
         'name' => 'Vakio',
-        'description' => '12 saraketta, rivin korkeus 80 px. Järkevä oletus useimmille koontinäkymille.',
+        'description' => '12 saraketta, rivin korkeus 80px . Järkevä oletus useimmille koontinäkymille.',
     ],
     'two_columns' => [
         'name' => 'Duo',

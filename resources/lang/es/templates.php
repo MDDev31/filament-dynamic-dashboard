@@ -3,7 +3,7 @@
 return [
     'flat_12' => [
         'name' => 'Estándar',
-        'description' => '12 columnas, fila de 80 px. Valor predeterminado adecuado para la mayoría de paneles.',
+        'description' => '12 columnas, fila de 80px . Valor predeterminado adecuado para la mayoría de paneles.',
     ],
     'two_columns' => [
         'name' => 'Dúo',

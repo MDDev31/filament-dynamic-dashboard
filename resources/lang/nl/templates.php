@@ -3,7 +3,7 @@
 return [
     'flat_12' => [
         'name' => 'Standaard',
-        'description' => '12 kolommen, rijhoogte 80 px. Verstandige standaard voor de meeste dashboards.',
+        'description' => '12 kolommen, rijhoogte 80px . Verstandige standaard voor de meeste dashboards.',
     ],
     'two_columns' => [
         'name' => 'Duo',

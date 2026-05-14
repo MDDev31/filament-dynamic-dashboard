@@ -2,6 +2,11 @@
 
 All notable changes to `filament-dynamic-dashboard` will be documented in this file.
 
+## [1.0.1] - 2026-05-14
+
+### Changed
+- Template options in the dashboard create/edit form are now sorted alphabetically by name, with the configured default template always shown first
+
 ## [1.0.0] - 2026-05-14
 
 A full rewrite of the layout, persistence, and rendering pipeline. Layouts are now JSON files, the canvas runs on GridStack, widget sizes live on the widget class, and the host app no longer needs Tailwind/Vite setup. See the Upgrading from v1.x section of the README before running `php artisan migrate`.

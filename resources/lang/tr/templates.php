@@ -3,7 +3,7 @@
 return [
     'flat_12' => [
         'name' => 'Standart',
-        'description' => '12 sütun, satır yüksekliği 80 px. Çoğu kontrol paneli için makul bir varsayılan.',
+        'description' => '12 sütun, satır yüksekliği 80px . Çoğu kontrol paneli için makul bir varsayılan.',
     ],
     'two_columns' => [
         'name' => 'İkili',

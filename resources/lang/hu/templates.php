@@ -3,7 +3,7 @@
 return [
     'flat_12' => [
         'name' => 'Alap',
-        'description' => '12 oszlop, 80 px sormagasság. A legtöbb műszerfalhoz megfelelő alapértelmezés.',
+        'description' => '12 oszlop, 80px  sormagasság. A legtöbb műszerfalhoz megfelelő alapértelmezés.',
     ],
     'two_columns' => [
         'name' => 'Duó',

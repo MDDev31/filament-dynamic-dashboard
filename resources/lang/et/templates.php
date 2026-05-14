@@ -3,7 +3,7 @@
 return [
     'flat_12' => [
         'name' => 'Standard',
-        'description' => '12 veergu, rea kõrgus 80 px. Mõistlik vaikeväärtus enamiku armatuurlaudade jaoks.',
+        'description' => '12 veergu, rea kõrgus 80px . Mõistlik vaikeväärtus enamiku armatuurlaudade jaoks.',
     ],
     'two_columns' => [
         'name' => 'Duo',

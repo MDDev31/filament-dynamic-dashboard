@@ -3,7 +3,7 @@
 return [
     'flat_12' => [
         'name' => 'Standardno',
-        'description' => '12 stupaca, visina retka 80 px. Razuman zadani izgled za većinu nadzornih ploča.',
+        'description' => '12 stupaca, visina retka 80px . Razuman zadani izgled za većinu nadzornih ploča.',
     ],
     'two_columns' => [
         'name' => 'Dvojac',

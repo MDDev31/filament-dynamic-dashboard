@@ -3,7 +3,7 @@
 return [
     'flat_12' => [
         'name' => 'Standard',
-        'description' => '12 kolonner, rækkehøjde 80 px. Fornuftig standard til de fleste dashboards.',
+        'description' => '12 kolonner, rækkehøjde 80px . Fornuftig standard til de fleste dashboards.',
     ],
     'two_columns' => [
         'name' => 'Duo',

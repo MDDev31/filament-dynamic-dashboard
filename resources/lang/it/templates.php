@@ -3,7 +3,7 @@
 return [
     'flat_12' => [
         'name' => 'Standard',
-        'description' => '12 colonne, riga da 80 px. Valore predefinito adatto alla maggior parte delle dashboard.',
+        'description' => '12 colonne, riga da 80px . Valore predefinito adatto alla maggior parte delle dashboard.',
     ],
     'two_columns' => [
         'name' => 'Duo',
