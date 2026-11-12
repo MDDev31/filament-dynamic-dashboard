@@ -376,3 +376,52 @@
         display: none !important;
     }
 }
+
+/* ---------------------------------------------------------------------- *
+ * Filter bar on small screens                                            *
+ * ---------------------------------------------------------------------- *
+ * Below the same 768px the filter bar folds into one row: a "Filters"
+ * button (with the number of filters that have a value) and the reset
+ * button. The page puts `dd-filters` on the bar and adds `dd-filters-open`
+ * once the button was used; a page that opted out has neither, so nothing
+ * here applies to it.
+ *
+ * The filters stay in the page, only hidden: their state, the session and
+ * what the widgets receive do not depend on the bar being open. */
+@media (max-width: 47.9375rem) {
+    /* The button carries an inline `display: none` (it must not show up on
+     * wider screens, even with an outdated copy of this file), hence the
+     * `!important`. */
+    .dd-filters .dd-filters-toggle {
+        display: inline-flex !important;
+        /* The row is end-aligned and reversed: this pushes the button to the
+         * opposite side of the reset button. */
+        margin-inline-end: auto;
+    }
+
+    /* Buttons on their own row above the filters, instead of beside them,
+     * so the filters get the full width. */
+    .dd-filters .dd-filters-bar {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 0.75rem;
+    }
+
+    .dd-filters .dd-filters-bar > :not(.fi-growable) {
+        order: -1;
+    }
+
+    /* On a very narrow screen the buttons may not fit on one line. The row
+     * being reversed, wrapping in reverse keeps "Filters" on the first line
+     * and sends the others below it, instead of the opposite. */
+    .dd-filters .dd-filters-bar .fi-ac {
+        flex-wrap: wrap-reverse;
+    }
+
+    /* Folded: only that row is left. */
+    .dd-filters:not(.dd-filters-open) .dd-filters-bar > .fi-growable,
+    .dd-filters:not(.dd-filters-open) .dd-filters-more,
+    .dd-filters:not(.dd-filters-open) :has(> .dd-filters-secondary) {
+        display: none;
+    }
+}

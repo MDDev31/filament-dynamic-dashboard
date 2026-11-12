@@ -54,6 +54,8 @@ return [
 
     // Filters
     'reset_filters' => 'Nollaa',
+    'filters' => 'Suodattimet',
+    'filters_count' => 'Suodattimet (:count)',
     'more_filters' => 'Lisää suodattimia',
     'more_filters_count' => 'Lisää suodattimia (:count)',
 ];

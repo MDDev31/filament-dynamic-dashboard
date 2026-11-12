@@ -35,6 +35,7 @@ abstract class TestCase extends Orchestra
         TestDashboardPage::$editable = true;
         BareDashboardPage::$editable = true;
         SecondaryFiltersPage::$secondary = [];
+        SecondaryFiltersPage::$collapsesOnSmallScreens = true;
 
         Filament::setCurrentPanel(Filament::getPanel('test'));
     }

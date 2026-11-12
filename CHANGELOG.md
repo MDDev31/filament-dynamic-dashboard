@@ -2,6 +2,20 @@
 
 All notable changes to `filament-dynamic-dashboard` will be documented in this file.
 
+## [1.2.1]
+
+### Upgrade notes
+
+- Run `php artisan filament:assets` after updating: the new behaviour is in the package stylesheet.
+
+### Added
+
+- **Folded filter bar on small screens.** Below 768px the filter bar is reduced to one row: a **Filters** button, with the number of displayed filters that have a value (**Filters (2)**), next to the reset button. Tapping the button shows or hides the filters instantly, without a request, and the state survives re-renders. The bar is folded on every page load; folded filters keep their values and still apply. Wider screens are unchanged. On by default: override the new `DynamicDashboard::collapseFiltersOnSmallScreens()` and return `false` to always show the filters. New translation keys `filters` and `filters_count` in every locale.
+
+### Changed
+
+- On small screens the buttons of the filter bar (reset, **More filters**) are on their own row above the filters instead of beside them, so the filters use the full width. Not applied to a page that turned the folding off.
+
 ## [1.2] - 2026-11-12
 
 Secondary filters, a single-column layout for small screens, Laravel 11 support, a round of access-control and stability fixes, and a test suite. No database change.

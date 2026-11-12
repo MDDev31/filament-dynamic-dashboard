@@ -54,6 +54,8 @@ return [
 
     // Filters
     'reset_filters' => 'Restablecer',
+    'filters' => 'Filtros',
+    'filters_count' => 'Filtros (:count)',
     'more_filters' => 'Más filtros',
     'more_filters_count' => 'Más filtros (:count)',
 ];

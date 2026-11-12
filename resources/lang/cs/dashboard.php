@@ -54,6 +54,8 @@ return [
 
     // Filters
     'reset_filters' => 'Obnovit',
+    'filters' => 'Filtry',
+    'filters_count' => 'Filtry (:count)',
     'more_filters' => 'Další filtry',
     'more_filters_count' => 'Další filtry (:count)',
 ];

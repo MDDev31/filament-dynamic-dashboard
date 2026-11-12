@@ -54,6 +54,8 @@ return [
 
     // Filters
     'reset_filters' => 'Lähtesta',
+    'filters' => 'Filtrid',
+    'filters_count' => 'Filtrid (:count)',
     'more_filters' => 'Rohkem filtreid',
     'more_filters_count' => 'Rohkem filtreid (:count)',
 ];

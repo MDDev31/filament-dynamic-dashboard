@@ -108,6 +108,25 @@ abstract class DynamicDashboard extends Page
     protected ?array $visibleSecondaryFilterNames = null;
 
     /**
+     * Whether the filter bar is unfolded on a small screen.
+     *
+     * Below 768px the bar is reduced to one row (see
+     * `collapseFiltersOnSmallScreens()`) and this flag reveals the filters.
+     * Like `secondaryFiltersOpen`, it is flipped in the browser without a
+     * request and survives re-renders. It starts closed on every page load
+     * and has no effect on wider screens.
+     */
+    public bool $smallScreenFiltersOpen = false;
+
+    /**
+     * Names of all the filters displayed on the current dashboard, resolved
+     * once per request (null until then).
+     *
+     * @var list<string>|null
+     */
+    protected ?array $visibleFilterNames = null;
+
+    /**
      * Define custom form components for editing default filter values.
      * Return a keyed array ['filterName' => Component].
      * Filters not in this array will use the original component from getDashboardFilters().
@@ -272,6 +291,19 @@ abstract class DynamicDashboard extends Page
      * Override in subclasses to disable globally.
      */
     public static function showWidgetLoader(): bool
+    {
+        return true;
+    }
+
+    /**
+     * Whether the filter bar folds into a single row on small screens.
+     *
+     * Below 768px the bar then only shows a "Filters" button, with the number
+     * of filters that have a value, next to the reset button; the button
+     * reveals the filters. Wider screens are not affected.
+     * Override in subclasses and return false to always show the filters.
+     */
+    public static function collapseFiltersOnSmallScreens(): bool
     {
         return true;
     }
@@ -520,6 +552,56 @@ abstract class DynamicDashboard extends Page
         $count = 0;
 
         foreach ($this->getVisibleSecondaryFilterNames() as $name) {
+            if (static::isFilterValueFilled(data_get($this->filters, $name))) {
+                $count++;
+            }
+        }
+
+        return $count;
+    }
+
+    /**
+     * Names of all the filters displayed on the current dashboard, primary
+     * and secondary.
+     *
+     * `filtersForm()` normally fills the cache while it builds the bar; this
+     * resolves it on its own when the form was not built.
+     *
+     * @return list<string>
+     */
+    protected function getVisibleFilterNames(): array
+    {
+        if ($this->visibleFilterNames !== null) {
+            return $this->visibleFilterNames;
+        }
+
+        $dashboard = $this->getCurrentDashboard();
+
+        if (! static::hasFilters() || ! $dashboard) {
+            return $this->visibleFilterNames = [];
+        }
+
+        $displayFilters = $dashboard->getDisplayFilters();
+        $names = [];
+
+        foreach (static::getDashboardFilters() as $field) {
+            if (static::isFilterDisplayed($displayFilters, $field->getName())) {
+                $names[] = $field->getName();
+            }
+        }
+
+        return $this->visibleFilterNames = $names;
+    }
+
+    /**
+     * Number of displayed filters, primary and secondary, that currently
+     * have a value. A default value counts like one the user picked.
+     */
+    protected function countActiveFilters(): int
+    {
+        $count = 0;
+
+        foreach ($this->getVisibleFilterNames() as $name) {
             if (static::isFilterValueFilled(data_get($this->filters, $name))) {
                 $count++;
             }
@@ -931,6 +1013,7 @@ abstract class DynamicDashboard extends Page
                 }
             }
             $fieldsVisible = count($visibleNames);
+            $this->visibleFilterNames = array_keys($visibleNames);
 
             // Split the secondary filters off, group by group. A page that
             // declares none keeps every field in the main row, as before.
@@ -974,6 +1057,9 @@ abstract class DynamicDashboard extends Page
             // only there when a secondary filter is displayed on this dashboard.
             // An end-aligned row is displayed in reverse order, so listing the
             // reset action first keeps it at the far end, where it always was.
+            // The last one, at the other end, only exists on small screens.
+            $collapsesOnSmallScreens = static::collapseFiltersOnSmallScreens();
+
             $barActions = Actions::make([
                 Action::make('resetFilters')
                     ->tooltip(__('filament-dynamic-dashboard::dashboard.reset_filters'))
@@ -982,10 +1068,18 @@ abstract class DynamicDashboard extends Page
                     ->color('gray')
                     ->action('resetFilters'),
                 ...($visibleSecondaryNames !== [] ? [$this->getSecondaryFiltersToggleAction()] : []),
+                ...($collapsesOnSmallScreens ? [$this->getSmallScreenFiltersToggleAction()] : []),
             ])->alignEnd()->grow(false);
 
+            // The classes below are only hooks for the small-screen rules of
+            // the package stylesheet; `dd-filters-open` follows the Livewire
+            // flag in the browser. None of them changes a wider screen.
             $schema->components([
                 Section::make()
+                    ->extraAttributes($collapsesOnSmallScreens ? [
+                        'class' => 'dd-filters',
+                        'x-bind:class' => '{ \'dd-filters-open\': $wire.smallScreenFiltersOpen }',
+                    ] : [])
                     ->schema([
                         Flex::make([
                             // set a minimum of 4 columns for filter
@@ -993,7 +1087,9 @@ abstract class DynamicDashboard extends Page
                                 ->schema($primaryFields)
                                 ->grow(),
                             $barActions,
-                        ])->verticallyAlignCenter(),
+                        ])
+                            ->verticallyAlignCenter()
+                            ->extraAttributes(['class' => 'dd-filters-bar']),
                         ...($secondaryGroups !== []
                             ? [$this->getSecondaryFiltersComponent($secondaryGroups, $visibleSecondaryNames !== [])]
                             : []),
@@ -1022,7 +1118,48 @@ abstract class DynamicDashboard extends Page
             ->color('gray')
             ->disabled(fn (): bool => $this->countActiveSecondaryFilters() > 0)
             ->alpineClickHandler('$wire.secondaryFiltersOpen = ! $wire.secondaryFiltersOpen')
-            ->extraAttributes(['x-bind:aria-expanded' => '$wire.secondaryFiltersOpen ? \'true\' : \'false\'']);
+            ->extraAttributes([
+                'class' => 'dd-filters-more',
+                'x-bind:aria-expanded' => '$wire.secondaryFiltersOpen ? \'true\' : \'false\'',
+            ]);
+    }
+
+    /**
+     * Build the "Filters" control that unfolds the bar on a small screen.
+     *
+     * It flips `smallScreenFiltersOpen` in the browser, without a request,
+     * and its label carries the number of filters that have a value.
+     *
+     * The button is hidden by an inline style and only the small-screen rules
+     * of the package stylesheet reveal it. With a stylesheet that was not
+     * republished after an update, it therefore stays hidden and the bar
+     * simply shows every filter, as it did before.
+     */
+    protected function getSmallScreenFiltersToggleAction(): Action
+    {
+        return Action::make('toggleSmallScreenFilters')
+            ->label(fn (): string => $this->getSmallScreenFiltersToggleLabel())
+            ->icon(Heroicon::OutlinedFunnel)
+            ->color('gray')
+            ->alpineClickHandler('$wire.smallScreenFiltersOpen = ! $wire.smallScreenFiltersOpen')
+            ->extraAttributes([
+                'class' => 'dd-filters-toggle',
+                'style' => 'display: none',
+                'x-bind:aria-expanded' => '$wire.smallScreenFiltersOpen ? \'true\' : \'false\'',
+            ]);
+    }
+
+    /**
+     * Label of the "Filters" control, with the number of filters that have a
+     * value when there is at least one.
+     */
+    protected function getSmallScreenFiltersToggleLabel(): string
+    {
+        $count = $this->countActiveFilters();
+
+        return $count > 0
+            ? __('filament-dynamic-dashboard::dashboard.filters_count', ['count' => $count])
+            : __('filament-dynamic-dashboard::dashboard.filters');
     }
 
     /**
@@ -1069,6 +1206,7 @@ abstract class DynamicDashboard extends Page
 
         return Group::make($components)
             ->key('secondaryFilters')
+            ->extraAttributes(['class' => 'dd-filters-secondary'])
             ->columns(1)
             ->columnSpanFull()
             ->visible($isDisplayed)

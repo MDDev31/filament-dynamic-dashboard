@@ -54,6 +54,8 @@ return [
 
     // Filters
     'reset_filters' => 'Reimposta',
+    'filters' => 'Filtri',
+    'filters_count' => 'Filtri (:count)',
     'more_filters' => 'Altri filtri',
     'more_filters_count' => 'Altri filtri (:count)',
 ];

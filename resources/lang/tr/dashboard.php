@@ -54,6 +54,8 @@ return [
 
     // Filters
     'reset_filters' => 'Yenile',
+    'filters' => 'Filtreler',
+    'filters_count' => 'Filtreler (:count)',
     'more_filters' => 'Daha fazla filtre',
     'more_filters_count' => 'Daha fazla filtre (:count)',
 ];

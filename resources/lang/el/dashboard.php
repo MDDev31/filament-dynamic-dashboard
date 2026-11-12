@@ -54,6 +54,8 @@ return [
 
     // Filters
     'reset_filters' => 'Επαναφορά',
+    'filters' => 'Φίλτρα',
+    'filters_count' => 'Φίλτρα (:count)',
     'more_filters' => 'Περισσότερα φίλτρα',
     'more_filters_count' => 'Περισσότερα φίλτρα (:count)',
 ];

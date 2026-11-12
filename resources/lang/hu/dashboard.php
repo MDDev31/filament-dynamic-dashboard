@@ -54,6 +54,8 @@ return [
 
     // Filters
     'reset_filters' => 'Visszaállítás',
+    'filters' => 'Szűrők',
+    'filters_count' => 'Szűrők (:count)',
     'more_filters' => 'További szűrők',
     'more_filters_count' => 'További szűrők (:count)',
 ];

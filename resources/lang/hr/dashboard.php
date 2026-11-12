@@ -54,6 +54,8 @@ return [
 
     // Filters
     'reset_filters' => 'Poništi',
+    'filters' => 'Filteri',
+    'filters_count' => 'Filteri (:count)',
     'more_filters' => 'Više filtera',
     'more_filters_count' => 'Više filtera (:count)',
 ];

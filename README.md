@@ -200,6 +200,7 @@ Extend `DynamicDashboard`. All standard Filament `Page` features (navigation ico
 | `canEdit()`                | `static bool`  | Whether the current user can add/edit/delete widgets and manage dashboards.   |
 | `canDisplay()`             | `static bool`  | Whether the current user can view a given dashboard.                          |
 | `showWidgetLoader()`       | `static bool`  | Whether widgets show a loading overlay during their own Livewire commits.     |
+| `collapseFiltersOnSmallScreens()` | `static bool` | Whether the filter bar folds into a single **Filters** button below 768px. `true` by default. |
 | `redirectToDashboard()`    | `protected void` | How the page reloads after a widget is added, edited or deleted, or the dashboard is switched. Follows the panel's SPA mode by default. |
 
 ## Creating a Dynamic Widget
@@ -663,6 +664,7 @@ Below 768px wide the grid is replaced by a single column, whatever the template:
 - **The layout is read-only.** Widgets cannot be dragged or resized there and nothing is saved, so the grid layout is never altered from a phone. Editing and deleting a widget, and adding one, still work: on a touch screen the edit and delete icons are always visible, since there is no hover to reveal them.
 - **Sections without widget are hidden**, since they are only drop targets.
 - Rotating the device or widening the window brings the grid back as it was, without a reload.
+- **The filter bar folds into one row**, so the widgets are not pushed down by a stack of filters. See [Filters on small screens](#filters-on-small-screens).
 
 This is plain CSS on top of GridStack (the "Compact layout" block of `dashboard.css`); no configuration is needed.
 
@@ -718,6 +720,28 @@ public static function getSecondaryDashboardFilters(): array
 - Names that match no filter are ignored. If the dashboard displays none of the secondary filters, the toggle is not rendered.
 
 Secondary filters are ordinary filters everywhere else: default values, the default-value fields, per-dashboard visibility, the session, the reset button and `pageFilters` all treat them like any other filter. Only where they are displayed changes.
+
+### Filters on small screens
+
+Below 768px the filters would stack one under the other and push the widgets far down. The bar is therefore folded into a single row there: a **Filters** button next to the reset button. Tapping it shows the filters, tapping it again hides them.
+
+- The button shows how many of the displayed filters have a value, default values included: **Filters (2)**. Secondary filters are counted too.
+- The bar is folded on every page load, even when filters have a value: the count is what tells the user that filters are applied.
+- Unfolding is instant, without a server request, and the state survives every re-render, so the bar does not close while the user is changing filters.
+- Once unfolded, the bar shows the main filters and, if the page has [secondary filters](#secondary-filters), the **More filters** toggle, which works as on a wide screen.
+- Folded filters are only hidden: their values, the session, the reset button and `pageFilters` are not affected.
+- Wider screens are not affected at all.
+
+This is on by default. To always show the filters, override `collapseFiltersOnSmallScreens()` on your page:
+
+```php
+public static function collapseFiltersOnSmallScreens(): bool
+{
+    return false;
+}
+```
+
+The folding is done by the package stylesheet: run `php artisan filament:assets` after updating. With an outdated published stylesheet the button simply does not appear and the filters stay visible.
 
 ### Per-dashboard filter session
 

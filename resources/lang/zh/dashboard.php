@@ -54,6 +54,8 @@ return [
 
     // Filters
     'reset_filters' => '重置',
+    'filters' => '筛选器',
+    'filters_count' => '筛选器 (:count)',
     'more_filters' => '更多筛选器',
     'more_filters_count' => '更多筛选器 (:count)',
 ];

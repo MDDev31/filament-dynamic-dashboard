@@ -54,6 +54,8 @@ return [
 
     // Filters
     'reset_filters' => 'إعادة تعيين',
+    'filters' => 'المرشحات',
+    'filters_count' => 'المرشحات (:count)',
     'more_filters' => 'مرشحات إضافية',
     'more_filters_count' => 'مرشحات إضافية (:count)',
 ];

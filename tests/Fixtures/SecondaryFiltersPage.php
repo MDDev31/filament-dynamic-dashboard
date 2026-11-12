@@ -22,6 +22,11 @@ class SecondaryFiltersPage extends DynamicDashboard
      */
     public static array $secondary = [];
 
+    /**
+     * What `collapseFiltersOnSmallScreens()` returns. Reset before every test.
+     */
+    public static bool $collapsesOnSmallScreens = true;
+
     /** @inheritDoc */
     public static function getDashboardFilters(): array
     {
@@ -42,5 +47,11 @@ class SecondaryFiltersPage extends DynamicDashboard
     public static function getSecondaryDashboardFilters(): array
     {
         return static::$secondary;
+    }
+
+    /** @inheritDoc */
+    public static function collapseFiltersOnSmallScreens(): bool
+    {
+        return static::$collapsesOnSmallScreens;
     }
 }
