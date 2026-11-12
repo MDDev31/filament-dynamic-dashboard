@@ -27,7 +27,11 @@ interface DynamicWidget
     /**
      * Define the casts for the settings parameters.
      *
-     * @return array<string, string>
+     * Each value is either a primitive type (`int`, `float`, `string`, `bool`),
+     * a BackedEnum class name, or `['array', <primitive or enum class>]` to
+     * cast every item of a list.
+     *
+     * @return array<string, string|array{0: string, 1: string}>
      */
     public static function getSettingsCasts(): array;
 

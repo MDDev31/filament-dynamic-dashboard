@@ -20,6 +20,12 @@ use Illuminate\Support\Facades\Schema;
  *  5. Add `is_personal` + `created_by` to `dashboards` (idempotent so this is
  *     a no-op on fresh installs where the create migration already shipped
  *     the columns).
+ *
+ * Every step is guarded by a real existence check (column, index or foreign
+ * key) instead of a try/catch: a failed statement would abort the whole
+ * migration transaction on PostgreSQL, and a try/catch placed inside a
+ * Blueprint closure never catches anything because the SQL only runs once
+ * the closure has returned.
  */
 return new class extends Migration {
     public function up(): void
@@ -75,50 +81,51 @@ return new class extends Migration {
                 });
         }
 
-        // 3. Drop the obsolete bits from dashboard_widgets.
+        // 3. Drop the obsolete bits from dashboard_widgets. Foreign keys and
+        //    indexes go first, each in its own statement, so the column drop
+        //    that follows never has anything left hanging on it.
         if (Schema::hasTable('dashboard_widgets')) {
-            Schema::table('dashboard_widgets', function (Blueprint $table): void {
-                if (Schema::hasColumn('dashboard_widgets', 'dashboard_grid_block_id')) {
-                    try {
-                        $table->dropForeign(['dashboard_grid_block_id']);
-                    } catch (\Throwable) {
-                        // FK may already be gone on partial re-runs.
-                    }
+            if (Schema::hasColumn('dashboard_widgets', 'dashboard_grid_block_id')) {
+                $this->dropForeignKeysOn('dashboard_widgets', 'dashboard_grid_block_id');
+
+                Schema::table('dashboard_widgets', function (Blueprint $table): void {
                     $table->dropColumn('dashboard_grid_block_id');
-                }
+                });
+            }
 
-                if (Schema::hasColumn('dashboard_widgets', 'ordering')) {
-                    try {
+            if (Schema::hasColumn('dashboard_widgets', 'ordering')) {
+                // The index may be missing if a previous version renamed it.
+                if (Schema::hasIndex('dashboard_widgets', 'idx_dashboard_widgets_ordering')) {
+                    Schema::table('dashboard_widgets', function (Blueprint $table): void {
                         $table->dropIndex('idx_dashboard_widgets_ordering');
-                    } catch (\Throwable) {
-                        // Index may not exist if a previous version renamed it.
-                    }
-                    $table->dropColumn('ordering');
+                    });
                 }
 
-                if (Schema::hasColumn('dashboard_widgets', 'columns')) {
+                Schema::table('dashboard_widgets', function (Blueprint $table): void {
+                    $table->dropColumn('ordering');
+                });
+            }
+
+            if (Schema::hasColumn('dashboard_widgets', 'columns')) {
+                Schema::table('dashboard_widgets', function (Blueprint $table): void {
                     $table->dropColumn('columns');
-                }
-            });
+                });
+            }
 
             // 4. Composite index for the new (dashboard, section) lookups.
-            try {
+            //    Skipped when already present (partial re-runs).
+            if (! Schema::hasIndex('dashboard_widgets', 'idx_dashboard_widgets_dashboard_section')) {
                 Schema::table('dashboard_widgets', function (Blueprint $table): void {
                     $table->index(['dashboard_id', 'section_slug'], 'idx_dashboard_widgets_dashboard_section');
                 });
-            } catch (\Throwable) {
-                // Index already present on partial re-runs.
             }
         }
 
         // Drop the obsolete dashboard_grid_id link on dashboards.
         if (Schema::hasTable('dashboards') && Schema::hasColumn('dashboards', 'dashboard_grid_id')) {
+            $this->dropForeignKeysOn('dashboards', 'dashboard_grid_id');
+
             Schema::table('dashboards', function (Blueprint $table): void {
-                try {
-                    $table->dropForeign(['dashboard_grid_id']);
-                } catch (\Throwable) {
-                    // Continue if already dropped.
-                }
                 $table->dropColumn('dashboard_grid_id');
             });
         }
@@ -127,9 +134,10 @@ return new class extends Migration {
         Schema::dropIfExists('dashboard_grid_blocks');
         Schema::dropIfExists('dashboard_grids');
 
-        // 5. Personal-dashboard columns. Idempotent — `Schema::hasColumn` guards
+        // 5. Personal-dashboard columns. Idempotent — the existence checks
         //    mean fresh installs (where create_dynamic_dashboard_tables already
-        //    shipped these columns) and partial re-runs both skip cleanly.
+        //    shipped these columns and their index) and partial re-runs both
+        //    skip cleanly.
         if (Schema::hasTable('dashboards')) {
             $usersTable = (new (config('auth.providers.users.model', \App\Models\User::class)))->getTable();
 
@@ -146,12 +154,10 @@ return new class extends Migration {
                 }
             });
 
-            try {
+            if (! Schema::hasIndex('dashboards', 'idx_dashboards_personal_creator')) {
                 Schema::table('dashboards', function (Blueprint $table): void {
                     $table->index(['is_personal', 'created_by'], 'idx_dashboards_personal_creator');
                 });
-            } catch (\Throwable) {
-                // Index already present on partial re-runs / fresh install.
             }
         }
     }
@@ -167,5 +173,25 @@ return new class extends Migration {
             'Migration upgrade_dynamic_dashboard_tables_to_v2 is not reversible. '
             .'Restore from a backup taken before the upgrade.'
         );
+    }
+
+    /**
+     * Drop every foreign key declared on a single column, when there is one.
+     *
+     * The key is looked up in the live schema so a partial re-run (key already
+     * gone) is a no-op, and it is dropped by its real name — SQLite has no
+     * named foreign keys, so the column is used there instead.
+     */
+    private function dropForeignKeysOn(string $tableName, string $column): void
+    {
+        foreach (Schema::getForeignKeys($tableName) as $foreignKey) {
+            if ($foreignKey['columns'] !== [$column]) {
+                continue;
+            }
+
+            Schema::table($tableName, function (Blueprint $table) use ($foreignKey, $column): void {
+                $table->dropForeign($foreignKey['name'] ?? [$column]);
+            });
+        }
     }
 };

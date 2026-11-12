@@ -2,11 +2,12 @@
 
 namespace MDDev\DynamicDashboard;
 
-use Filament\Support\Assets\Css;
-use Filament\Support\Assets\Js;
 use Filament\Support\Facades\FilamentAsset;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Event;
 use Livewire\Livewire;
+use MDDev\DynamicDashboard\Assets\CanvasCss;
+use MDDev\DynamicDashboard\Assets\CanvasJs;
 use MDDev\DynamicDashboard\Livewire\DashboardManager;
 use MDDev\DynamicDashboard\Templates\TemplateRegistry;
 use Spatie\LaravelPackageTools\Package;
@@ -39,7 +40,13 @@ class FilamentDynamicDashboardServiceProvider extends PackageServiceProvider
                 'create_dynamic_dashboard_tables',
                 'upgrade_dynamic_dashboard_tables_to_v2',
             ]);
+    }
 
+    /**
+     * Registers the package's container bindings.
+     */
+    public function packageRegistered(): void
+    {
         $this->app->singleton(TemplateRegistry::class);
     }
 
@@ -61,12 +68,16 @@ class FilamentDynamicDashboardServiceProvider extends PackageServiceProvider
             Livewire::component('filament-dynamic-dashboard::dashboard-manager', DashboardManager::class);
         }
 
+        // `php artisan filament:assets` publishes these like any other asset.
+        // Outside SPA mode they are loaded on request: Filament leaves them
+        // out of its global list and the canvas view pulls them in itself, so
+        // only dashboard pages download them (see LoadedOnRequestOutsideSpaMode).
         FilamentAsset::register(
             [
-                Css::make('gridstack', __DIR__.'/../resources/dist/gridstack.min.css'),
-                Css::make('dashboard', __DIR__.'/../resources/css/dashboard.css'),
-                Js::make('gridstack', __DIR__.'/../resources/dist/gridstack-all.js'),
-                Js::make('dashboard', __DIR__.'/../resources/js/dashboard.js'),
+                CanvasCss::make('gridstack', __DIR__.'/../resources/dist/gridstack.min.css'),
+                CanvasCss::make('dashboard', __DIR__.'/../resources/css/dashboard.css'),
+                CanvasJs::make('gridstack', __DIR__.'/../resources/dist/gridstack-all.js'),
+                CanvasJs::make('dashboard', __DIR__.'/../resources/js/dashboard.js'),
             ],
             package: 'mddev31/filament-dynamic-dashboard',
         );
@@ -81,6 +92,11 @@ class FilamentDynamicDashboardServiceProvider extends PackageServiceProvider
      * personal dashboards would survive their owner as orphan rows that nobody
      * can ever see again. Globals created by the same user keep their row and
      * lose the `created_by` reference (audit residue) — only personals cascade.
+     *
+     * The listener is registered on the event dispatcher (not through
+     * `User::deleting()`) so the user model is not booted on every request.
+     * A soft delete keeps the personal dashboards — the user can still be
+     * restored — and they are only dropped once the user is force-deleted.
      */
     protected function cascadeDeletePersonalDashboardsWithUser(): void
     {
@@ -90,7 +106,11 @@ class FilamentDynamicDashboardServiceProvider extends PackageServiceProvider
             return;
         }
 
-        $userModel::deleting(function (Model $user): void {
+        Event::listen('eloquent.deleting: '.$userModel, function (Model $user): void {
+            if (method_exists($user, 'isForceDeleting') && ! $user->isForceDeleting()) {
+                return;
+            }
+
             DashboardModelHelper::model()::query()
                 ->where('is_personal', true)
                 ->where('created_by', $user->getKey())

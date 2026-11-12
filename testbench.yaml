@@ -1,0 +1,4 @@
+# Used by `vendor/bin/testbench` and by Larastan, which boots this application
+# to resolve the package's views, config and translations during analysis.
+providers:
+  - MDDev\DynamicDashboard\FilamentDynamicDashboardServiceProvider

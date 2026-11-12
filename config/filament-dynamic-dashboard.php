@@ -30,7 +30,7 @@ return [
     ],
     'default_template' => 'flat-12',
     'disabled_templates' => [
-        // e.g. 'flat-24-dense', 'kpi-strip-chart',
+        // e.g. 'sidebar-main', 'kpi-strip-chart',
     ],
     'use_spatie_permissions' => false,
     'default_personal' => false,

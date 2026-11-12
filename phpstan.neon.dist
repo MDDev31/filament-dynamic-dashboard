@@ -1,0 +1,37 @@
+# Run this through `composer analyse` rather than `vendor/bin/phpstan`.
+#
+# To analyse a package, Larastan boots Testbench's skeleton application and
+# leaves a `vendor` link inside it (vendor/orchestra/testbench-core/laravel/vendor)
+# that points back at this package's own vendor directory. That is harmless on
+# its own, but when the package is symlinked into an application whose Vite dev
+# server watches `vendor/`, the watcher follows the loop forever. The composer
+# script removes the link again once the analysis has finished.
+includes:
+    - vendor/larastan/larastan/extension.neon
+
+parameters:
+    level: 5
+
+    paths:
+        - src
+        - config
+        # The fixtures are the only place where the HasSizeDefaults and
+        # HasEmptySettings traits are used, so they are what gets them analysed.
+        - tests/Fixtures
+
+    excludePaths:
+        # Uses a trait from spatie/laravel-permission, which is an optional
+        # dependency and is not installed for development.
+        - src/Models/DashboardWithRoles.php
+
+    # Widget classes, JSON templates and browser payloads come from outside the
+    # package: their PHPDoc types are a contract, not a guarantee, so the
+    # runtime checks made against them are intentional.
+    treatPhpDocTypesAsCertain: false
+
+    ignoreErrors:
+        # Style choice: `$dashboard?->template ?? $default` is kept as written.
+        # It is equivalent to `$dashboard->template ?? $default` and reads better.
+        -
+            identifier: nullsafe.neverNull
+            message: '#^Using nullsafe property access ".+" on left side of \?\? is unnecessary\.#'

@@ -3,13 +3,13 @@
 namespace MDDev\DynamicDashboard\Models;
 
 use Filament\Widgets\WidgetConfiguration;
-use Illuminate\Database\Eloquent\Attributes\Scope;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Facades\DB;
 use MDDev\DynamicDashboard\Casts\AsWidgetSettings;
-use MDDev\DynamicDashboard\DashboardModelHelper;
 use MDDev\DynamicDashboard\Contracts\DynamicWidget;
+use MDDev\DynamicDashboard\DashboardModelHelper;
 
 /**
  * Default Eloquent implementation of a dashboard widget entry.
@@ -30,6 +30,8 @@ use MDDev\DynamicDashboard\Contracts\DynamicWidget;
  * @property bool $is_active
  * @property bool $display_title
  * @property array $settings
+ *
+ * @method static Builder<static> availableFor(Dashboard $dashboard)
  */
 class DashboardWidget extends Model
 {
@@ -38,7 +40,7 @@ class DashboardWidget extends Model
     /**
      * The attributes that are mass assignable
      *
-     * @var array<int, string>
+     * @var list<string>
      */
     protected $fillable = [
         'dashboard_id',
@@ -104,6 +106,10 @@ class DashboardWidget extends Model
      * Size is no longer overridden here — it is enforced by GridStack on the
      * canvas using the widget class's static min/max methods.
      * Returns null when the type class is missing or invalid.
+     *
+     * @deprecated The canvas mounts widgets directly from the Blade view and no
+     *             longer calls this method. It is kept for backward compatibility
+     *             and will be removed in the next major version.
      */
     public function getWidget(): ?WidgetConfiguration
     {
@@ -119,10 +125,26 @@ class DashboardWidget extends Model
     }
 
     /**
-     * Scope to get active widgets for a specific dashboard.
+     * First free row of a dashboard section: the row just below the lowest
+     * edge (`y + h`) of every widget already in it, or 0 when it is empty.
+     *
+     * Used to stack a widget at the bottom of a section without ever
+     * overlapping a widget that is more than one row tall.
      */
-    #[Scope]
-    protected function availableFor(Builder $query, Dashboard $dashboard): void
+    public static function nextFreeRow(int $dashboardId, string $sectionSlug): int
+    {
+        return (int) static::query()
+            ->where('dashboard_id', $dashboardId)
+            ->where('section_slug', $sectionSlug)
+            ->max(DB::raw('y + h'));
+    }
+
+    /**
+     * Scope to get active widgets for a specific dashboard.
+     *
+     * @param  Builder<static>  $query
+     */
+    public function scopeAvailableFor(Builder $query, Dashboard $dashboard): void
     {
         $query
             ->where('dashboard_id', $dashboard->id)

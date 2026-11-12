@@ -4,18 +4,18 @@ End-user-configurable dashboards for Filament v4/5 — drag, resize, and move wi
 
 [![PHP 8.3+](https://img.shields.io/badge/PHP-8.3%2B-blue)](https://www.php.net/)
 [![Filament 4/5](https://img.shields.io/badge/Filament-4%20%7C%205-orange)](https://filamentphp.com/)
-[![Laravel 10/11/12](https://img.shields.io/badge/Laravel-10%20%7C%2011%20%7C%2012-red)](https://laravel.com/)
+[![Laravel 11/12/13](https://img.shields.io/badge/Laravel-11%20%7C%2012%20%7C%2013-red)](https://laravel.com/)
 [![License MIT](https://img.shields.io/badge/License-MIT-green)](LICENSE.md)
 
 ## Introduction
 
-Filament Dynamic Dashboard turns Filament's static widget grid into a **fluid, end-user-configurable** dashboard system. Drag widgets anywhere on the canvas, resize them from any corner, move them between named sections, and the layout persists in a single round-trip. 
+Filament Dynamic Dashboard turns Filament's static widget grid into a **fluid, end-user-configurable** dashboard system. Drag widgets anywhere on the canvas, resize them from their corner handle, move them between named sections, and the layout persists in a single round-trip. 
 
 Widgets carry size constraints declared on the class itself, so a chart can lock its height while still letting users resize width; container resizes propagate to chart libraries automatically. 
 
 Per-dashboard filters, default filter values, per-filter visibility, and optional Spatie role-based access all work out of the box.
 
-Built for Filament v4+, Laravel 10+, and powered by [GridStack.js](https://gridstackjs.com/) under the hood.
+Built for Filament v4+, Laravel 11.28+, and powered by [GridStack.js](https://gridstackjs.com/) under the hood.
 
 **Key capabilities**
 
@@ -24,6 +24,8 @@ Built for Filament v4+, Laravel 10+, and powered by [GridStack.js](https://grids
 - JSON layout templates with named sections, per-section column count, row span, and row height.
 - 8 shipped layout presets — Standard, Split, Trio, Quad, Sidebar, Report, Showcase, KPI. Add your own as JSON files.
 - Multiple dashboards per page, each with its own filter state, default values, and visibility toggles.
+- Secondary filters: keep the main filters on the bar and put the others behind a **More filters** toggle.
+- A single-column layout on small screens: one full-width widget per row, whatever the template.
 - Widget settings stored as JSON, hydrated as typed properties (primitives, BackedEnums, arrays of enums).
 - Lock a dashboard to make it read-only.
 - Personal dashboards — mark a dashboard as personal so only its creator sees it; globals stay shared as before. Picker groups them with a visual separator and a user icon.
@@ -32,8 +34,8 @@ Built for Filament v4+, Laravel 10+, and powered by [GridStack.js](https://grids
 ## Requirements
 
 - PHP >= 8.3
-- Filament >= 4.1.10 (Filament 5 supported)
-- Laravel 10/11/12/13 
+- Filament >= 4.1.1 (Filament 5 supported)
+- Laravel >= 11.28 (Laravel 12 and 13 supported)
 - (Optional) `spatie/laravel-permission` for role-based visibility
 
 ## Installation
@@ -57,7 +59,7 @@ Publish the JavaScript and CSS (GridStack + this package's own bundle):
 php artisan filament:assets
 ```
 
-Filament's panel layout injects them automatically — no `<link>` or `<script>` tags to add yourself.
+They are injected automatically — no `<link>` or `<script>` tags to add yourself. In a panel without SPA mode they are only added to dashboard pages; in a panel using `->spa()` Filament loads them on every page, so the dashboard is ready the moment it is navigated to.
 
 Optionally publish the configuration file:
 
@@ -70,6 +72,25 @@ Optionally publish translations:
 ```bash
 php artisan vendor:publish --tag=filament-dynamic-dashboard-translations
 ```
+
+## Upgrading to 1.2
+
+No database change. After `composer update`:
+
+```bash
+php artisan filament:assets
+php artisan view:clear
+```
+
+Things that behave differently, in case you rely on them:
+
+- **Laravel 11.28 is the minimum** (it is the lowest version Filament 4 itself supports).
+- **Page reloads follow the panel.** After a widget is added, edited or deleted, or the dashboard is switched, a panel without `->spa()` now does a regular page load instead of a Livewire navigation. Override `redirectToDashboard()` on your page to choose otherwise.
+- **Assets are loaded on request outside SPA mode.** GridStack and the canvas CSS/JS are only added to dashboard pages.
+- **Published views.** If you published the package's views, update your copies of `livewire/dashboard-grid.blade.php` and `schemas/widget-wrapper.blade.php` from the package: the first one now pulls the assets in and carries the values used by the small-screen layout.
+- **Tighter access rules.** `currentDashboardId` can no longer be set from the browser, the manager no longer lists other users' personal dashboards, and widget actions are limited to the dashboard being viewed. Custom JavaScript that wrote `currentDashboardId` through `$wire` has to call the dashboard selector instead.
+
+See the [changelog](CHANGELOG.md) for the full list.
 
 ## Upgrading from version under 1.x
 
@@ -173,11 +194,13 @@ Extend `DynamicDashboard`. All standard Filament `Page` features (navigation ico
 | Method                     | Signature      | Purpose                                                                       |
 |----------------------------|----------------|-------------------------------------------------------------------------------|
 | `getDashboardFilters()`    | `static array` | Return Filament `Field` components shown in the filter bar.                   |
+| `getSecondaryDashboardFilters()` | `static array` | Return the names of the filters to put behind the **More filters** toggle, as a flat list or grouped under headings. |
 | `getDefaultFilterSchema()` | `static array` | Return custom fields for editing default filter values (keyed by filter name). |
 | `resolveFilterDefaults()`  | `static array` | Transform stored defaults into actual filter values at apply time.            |
 | `canEdit()`                | `static bool`  | Whether the current user can add/edit/delete widgets and manage dashboards.   |
 | `canDisplay()`             | `static bool`  | Whether the current user can view a given dashboard.                          |
 | `showWidgetLoader()`       | `static bool`  | Whether widgets show a loading overlay during their own Livewire commits.     |
+| `redirectToDashboard()`    | `protected void` | How the page reloads after a widget is added, edited or deleted, or the dashboard is switched. Follows the panel's SPA mode by default. |
 
 ## Creating a Dynamic Widget
 
@@ -187,7 +210,7 @@ Any Filament widget can become a dynamic widget by implementing the `DynamicWidg
 |---------------------------------------------------|-------------------------|------------------------------------------------------------------------|
 | `getWidgetLabel()`                                | `string`                | Display name shown in the widget type selector.                        |
 | `getSettingsFormSchema()`                         | `array<Component>`      | Filament form components for widget-specific settings.                 |
-| `getSettingsCasts()`                              | `array<string, string>` | Cast definitions for settings values (primitives, BackedEnums, arrays). |
+| `getSettingsCasts()`                              | `array<string, string\|array>` | Cast definitions for settings values (primitives, BackedEnums, arrays). |
 | `getDynamicDashboardDefaultWidth()`               | `int`                   | Width (columns) of new instances of this widget.                       |
 | `getDynamicDashboardDefaultHeight()`              | `int`                   | Height (rows) of new instances of this widget.                         |
 | `getDynamicDashboardMinWidth()` / `…MaxWidth()`   | `int`                   | Width resize range. Set both equal to lock width.                      |
@@ -199,7 +222,7 @@ Any Filament widget can become a dynamic widget by implementing the `DynamicWidg
 
 | Trait                                              | Provides                                                                                              |
 |----------------------------------------------------|--------------------------------------------------------------------------------------------------------|
-| `MDDev\DynamicDashboard\Concerns\HasSizeDefaults`  | Sensible defaults for all six size methods (default 4×1, min 1×1, max 12×12). Override only what you constrain. |
+| `MDDev\DynamicDashboard\Concerns\HasSizeDefaults`  | Sensible defaults for all six size methods (default 4×2, min 1×1, max 12×12). Override only what you constrain. |
 | `MDDev\DynamicDashboard\Concerns\HasEmptySettings` | Empty `getSettingsFormSchema()` and `getSettingsCasts()` for widgets without configurable settings.   |
 
 ### Simple widget (no settings, default size)
@@ -339,8 +362,9 @@ Hydration flow:
 Admin saves form
   → settings stored as JSON  {"resultType": "gross_revenue", "limit": 5}
   → on render, AsWidgetSettings cast applies getSettingsCasts()
-  → cast values spread into Widget::make(['resultType' => ResultTypeEnum::GrossRevenue, 'limit' => 5, …])
-  → Livewire hydrates public properties $this->resultType, $this->limit
+  → cast values are passed to the widget's Livewire component when it is mounted
+      (['resultType' => ResultTypeEnum::GrossRevenue, 'limit' => 5, …])
+  → Livewire fills the public properties $this->resultType, $this->limit
 ```
 
 Give every public property a default value — if a setting hasn't been saved yet, that default is used.
@@ -421,7 +445,7 @@ When a user drags a widget's resize handle, GridStack updates the container size
 
 For the auto-resize to actually use the new size, the widget's own chart options must use **responsive sizing**:
 
-**ApexCharts** — set `chart.height: '100%'` in `getOptions()`:
+**ApexCharts** — set `chart.height: 'auto'` in `getOptions()`:
 
 ```php
 protected function getOptions(): array
@@ -429,7 +453,7 @@ protected function getOptions(): array
     return [
         'chart' => [
             'type' => 'bar',
-            'height' => '100%',
+            'height' => 'auto',
         ],
         // ...
     ];
@@ -474,13 +498,13 @@ class MyWidget extends Widget implements DynamicWidget
 
 ## Layout Templates (JSON)
 
-Templates are plain JSON files on disk. Each declares a parent column count and an ordered list of **sections** — named zones that host widgets. The package ships 10 presets and a dashboard references one via its `template_key`.
+Templates are plain JSON files on disk. Each declares a parent column count and an ordered list of **sections** — named zones that host widgets. The package ships 8 presets and a dashboard references one via its `template_key`.
 
 ### Template file format
 
 A template is a JSON file in any directory listed by `config('filament-dynamic-dashboard.template_paths')`. The package's own preset directory is always loaded first; later paths override earlier ones by `key`, so app-level templates can replace shipped ones.
 
-Single-section ("flat") template — one big canvas, no visible section header:
+Single-section ("flat") template — one big canvas:
 
 ```json
 {
@@ -499,7 +523,7 @@ Single-section ("flat") template — one big canvas, no visible section header:
 }
 ```
 
-Multi-section template — each section has its own column count, GridStack row height, and optional visible header. `row_span` lets a section occupy several parent rows so asymmetric layouts fall out of CSS Grid auto-flow:
+Multi-section template — each section has its own column count, GridStack row height, and optional label. `row_span` lets a section occupy several parent rows so asymmetric layouts fall out of CSS Grid auto-flow:
 
 ```json
 {
@@ -530,7 +554,7 @@ Multi-section template — each section has its own column count, GridStack row 
 | Field        | Type                | Notes                                                                                  |
 |--------------|---------------------|----------------------------------------------------------------------------------------|
 | `slug`       | string              | Unique inside the template. Stored on widgets as `section_slug`.                       |
-| `name`       | string or `null`    | Translation key for the visible header. `null` ⇒ no header.                            |
+| `name`       | string or `null`    | Translation key for the section's label, shown in the **Section** selector of the Add Widget modal. `null` ⇒ the slug is shown. |
 | `columns`    | int (1–parent)      | Both the section's column-span in the parent grid AND its inner GridStack columns.     |
 | `row_span`   | int (≥1, default 1) | Number of parent rows the section spans. Use for asymmetric layouts.                   |
 | `row_height` | int (20–500)        | Inner GridStack `cellHeight` in pixels.                                                |
@@ -544,12 +568,12 @@ Shipped translations live at `resources/lang/{locale}/templates.php`:
 ```php
 return [
     'flat_12' => [
-        'name'        => 'Standard 12-column',
+        'name'        => 'Standard',
         'description' => '12 columns, 80px row. Sensible default for most dashboards.',
     ],
     'two_left_one_right' => [
-        'name'        => 'Two-left + tall right',
-        'description' => 'Two stacked sections on the left and one full-height section on the right.',
+        'name'        => 'Showcase',
+        'description' => 'Two stacked half-width sections on the left and one full-height section on the right.',
         'top_left'    => 'Top left',
         'right'       => 'Right (tall)',
         'bottom_left' => 'Bottom left',
@@ -594,7 +618,7 @@ To hide some shipped templates from the manager's selector — without breaking 
 
 ```php
 'disabled_templates' => [
-    'flat-24-dense',
+    'sidebar-main',
     'kpi-strip-chart',
 ],
 ```
@@ -626,9 +650,21 @@ When a dashboard's `is_locked` toggle is on, or the current user's `canEdit()` r
 
 - Every section's GridStack initialises with `staticGrid: true` — no drag, no resize, no drop targets.
 - The widget hover cluster (drag handle, edit, delete) is hidden.
-- The **Add Widget** button and **Manage dashboards** entry disappear from the page header.
+- The **Add Widget** button disappears from the page header.
+- The **Manage dashboards** entry is hidden from users who cannot edit. Editors keep it on a locked dashboard: it is where the dashboard is unlocked.
 
-The widgets still render normally, so non-editors see a clean read-only view.
+The widgets still render normally, so non-editors see a clean read-only view. Edit, delete and add are also refused on the server while the dashboard is locked, whatever the browser sends.
+
+### Small screens
+
+Below 768px wide the grid is replaced by a single column, whatever the template: sections stack in template order and every widget takes one full-width row. Inside a section widgets follow their grid position, top to bottom then left to right.
+
+- **Height adapts to the content.** A widget is at least as tall as it was designed (its rows × the section's row height) and grows when its content needs more room, for example stats that stack or a long table. The minimum is what gives a height to widgets that fill their box, such as a chart with `maintainAspectRatio: false`.
+- **The layout is read-only.** Widgets cannot be dragged or resized there and nothing is saved, so the grid layout is never altered from a phone. Editing and deleting a widget, and adding one, still work: on a touch screen the edit and delete icons are always visible, since there is no hover to reveal them.
+- **Sections without widget are hidden**, since they are only drop targets.
+- Rotating the device or widening the window brings the grid back as it was, without a reload.
+
+This is plain CSS on top of GridStack (the "Compact layout" block of `dashboard.css`); no configuration is needed.
 
 ## Managing Filters
 
@@ -651,6 +687,37 @@ public static function getDashboardFilters(): array
     ];
 }
 ```
+
+### Secondary filters
+
+By default every filter sits on a single row, one column per filter. On a page with many filters, override `getSecondaryDashboardFilters()` to keep the main ones on that row and put the others behind a **More filters** toggle. Return the names of filters declared in `getDashboardFilters()`, either as a flat list:
+
+```php
+public static function getSecondaryDashboardFilters(): array
+{
+    return ['brand', 'supplier'];
+}
+```
+
+or grouped under headings (the keys are displayed as they are, so translate them yourself):
+
+```php
+public static function getSecondaryDashboardFilters(): array
+{
+    return [
+        __('Customer') => ['prescriber', 'age_bracket'],
+        __('Product') => ['brand', 'supplier'],
+    ];
+}
+```
+
+- The other filters stay on the main row, whose column count is computed from them alone (minimum 4).
+- Secondary filters are laid out below in a fixed responsive grid (1, 2 then 4 columns), under their group heading if there is one.
+- The toggle sits next to the reset button and shows how many secondary filters have a value: **More filters (2)**. It opens and closes the area instantly, without a server request, and the open state survives every re-render.
+- While a secondary filter has a value the area stays open and the toggle is disabled, so an active filter is never hidden: on first load, after defaults are applied or reset, and after a dashboard switch. Empty the filters to collapse it again.
+- Names that match no filter are ignored. If the dashboard displays none of the secondary filters, the toggle is not rendered.
+
+Secondary filters are ordinary filters everywhere else: default values, the default-value fields, per-dashboard visibility, the session, the reset button and `pageFilters` all treat them like any other filter. Only where they are displayed changes.
 
 ### Per-dashboard filter session
 
@@ -740,7 +807,7 @@ When the user has both global and personal dashboards visible, the dropdown grou
 
 ### Add Widget
 
-The **Add Widget** button (visible to editors on unlocked dashboards) opens a modal with:
+The **Add Widget** button (labelled **Widget**, visible to editors on unlocked dashboards) opens a modal with:
 
 - **Title** — display name for the widget.
 - **Display title** — toggle to show or hide the floating title badge above the widget.
@@ -755,7 +822,7 @@ Size and position are deliberately absent — width and height come from the wid
 Each widget is wrapped with chrome that adds:
 
 - A floating title badge above the widget (when **Display title** is on).
-- A top-right hover cluster with three icons: **drag handle** (the move target — GridStack picks up the drag here), **edit**, **delete**.
+- A top-right cluster with three icons, shown on hover (always shown on touch screens): **drag handle** (the move target — GridStack picks up the drag here), **edit**, **delete**.
 - A bottom-right GridStack resize handle.
 - A loading overlay while the inner Livewire widget is committing (toggleable, see [Loading indicator](#loading-indicator)).
 
@@ -764,12 +831,12 @@ Each widget is wrapped with chrome that adds:
 A reorderable table of all dashboards. Personal dashboards display a small user icon in the **Name** column; other users' personal dashboards are not listed at all — the manager only shows globals plus the viewer's own personals.
 
 - **Active** toggle — enable or disable a dashboard. The last active dashboard and the currently viewed dashboard cannot be deactivated.
-- **Locked** toggle — flip a dashboard to read-only for everyone (no drag, resize, or widget add/edit/delete).
+- **Locked** toggle — flip a dashboard to read-only for everyone (no drag, resize, or widget add/edit/delete). The canvas of the open dashboard locks and unlocks immediately; the **Add Widget** button follows once the manager is closed.
 - **Edit** action opens a tabbed modal:
   - **General** — name, description, **Template** selector (populated from every JSON template the registry discovered, minus any disabled in config), **Personal dashboard** toggle (default from `default_personal` config), Spatie roles when enabled.
   - **Visible filters** — toggles per filter field.
   - **Default values** — set default filter values per filter.
-- **Duplicate** action deep-copies the dashboard with every widget, preserving each widget's `section_slug` and `(x, y, w, h)`.
+- **Duplicate** action deep-copies the dashboard with every widget, preserving each widget's `section_slug` and `(x, y, w, h)`. Spatie roles are not copied: assign them again on the copy if it must stay restricted.
 - **Delete** action — protected against deleting the last active dashboard or the one currently viewed.
 
 There is no template-management tab — templates are JSON files, edited on disk (or just shipped as presets).
@@ -797,9 +864,10 @@ public static function canEdit(): bool
 
 Override `canDisplay()` to control per-dashboard visibility. The default logic is:
 
-1. Editors (`canEdit() === true`) always see every dashboard.
-2. If the dashboard model has Spatie roles, check `$user->hasAnyRole($dashboard->roles)`.
-3. Fall back to the page-level `canAccess()`.
+1. A personal dashboard is only visible to its creator, editors included (see [Personal dashboards](#personal-dashboards)).
+2. Editors (`canEdit() === true`) see every other dashboard.
+3. If the dashboard model has Spatie roles, check `$user->hasAnyRole($dashboard->roles)`.
+4. Fall back to the page-level `canAccess()`.
 
 ```php
 public static function canDisplay(Dashboard $dashboard): bool
@@ -825,7 +893,7 @@ Toggle **Personal dashboard** in the dashboard edit form to mark a dashboard as 
 
 Each dashboard also persists a `created_by` column (nullable foreign key to your users table, resolved from `config('auth.providers.users.model')`). The creator is captured automatically on `creating`; the **Duplicate** action re-assigns the new copy to the user who duplicated it.
 
-When a user is deleted, the package's `User::deleting` hook deletes that user's personal dashboards. Global dashboards they created keep their row and have `created_by` set to null (audit residue rather than data loss).
+When a user is deleted, the package's `deleting` listener on the user model deletes that user's personal dashboards. Global dashboards they created keep their row and have `created_by` set to null (audit residue rather than data loss). If the user model uses `SoftDeletes`, a soft delete keeps the personal dashboards (so they come back when the user is restored); they are only removed once the user is force-deleted.
 
 Set the default for new dashboards with:
 
@@ -852,6 +920,8 @@ php artisan vendor:publish --tag=filament-dynamic-dashboard-config
 
 Supported languages: **English** (`en`), **French** (`fr`), **Spanish** (`es`), **Portuguese** (`pt`), **German** (`de`), **Russian** (`ru`), **Chinese** (`zh`), **Bulgarian** (`bg`), **Croatian** (`hr`), **Danish** (`da`), **Estonian** (`et`), **Finnish** (`fi`), **Greek** (`el`), **Hungarian** (`hu`), **Italian** (`it`), **Dutch** (`nl`), **Polish** (`pl`), **Romanian** (`ro`), **Swedish** (`sv`), **Czech** (`cs`), **Japanese** (`ja`), **Arabic** (`ar`), **Turkish** (`tr`).
 
+The regional locales `pt_BR` and `zh_CN` are aliases of `pt` and `zh`: an application using one of them gets those translations instead of falling back to English.
+
 Publish translations to customize them:
 
 ```bash
@@ -860,6 +930,14 @@ php artisan vendor:publish --tag=filament-dynamic-dashboard-translations
 
 All UI translation keys are namespaced under `filament-dynamic-dashboard::dashboard.*`; template name/description keys are under `filament-dynamic-dashboard::templates.*`.
 
+## Testing
+
+```bash
+composer test      # Pest test suite (in-memory SQLite, real Filament panel)
+composer analyse   # PHPStan / Larastan
+composer format    # Laravel Pint
+```
+
 ## Changelog
 
 See [CHANGELOG.md](https://github.com/MDDev31/filament-dynamic-dashboard/blob/master/CHANGELOG.md) for release notes.
@@ -867,7 +945,7 @@ See [CHANGELOG.md](https://github.com/MDDev31/filament-dynamic-dashboard/blob/ma
 ## Credits
 
 - The [Filament](https://filamentphp.com/) core team for the framework.
-- [GridStack.js](https://gridstackjs.com/) — the drag-and-drop / resize engine that makes the canvas tick.
+- [GridStack.js](https://gridstackjs.com/) — the drag-and-drop / resize engine that makes the canvas tick. Version 12.6.0 is vendored in `resources/dist` under its MIT licence (see `resources/dist/gridstack.LICENSE.txt`).
 - [filament-apex-charts](https://github.com/leandrocfe/filament-apex-charts) by [Leandro Ferreira](https://github.com/leandrocfe) — the spark behind this plugin.
 
 ## License

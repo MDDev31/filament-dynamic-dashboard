@@ -1,0 +1,10 @@
+{
+    "preset": "laravel",
+    "rules": {
+        "phpdoc_tag_type": {
+            "tags": {
+                "inheritdoc": "annotation"
+            }
+        }
+    }
+}

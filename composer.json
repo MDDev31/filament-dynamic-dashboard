@@ -24,16 +24,20 @@
         "php": "^8.3",
         "filament/filament": "^4.1.1|^5.0",
         "spatie/laravel-package-tools": "^1.93",
-        "illuminate/contracts": "^11.0|^12.0|^13.0"
+        "illuminate/contracts": "^11.28|^12.0|^13.0"
     },
     "require-dev": {
+        "larastan/larastan": "^3.0",
         "laravel/pint": "^1.0",
         "mockery/mockery": "^1.6",
-        "orchestra/testbench": "^9.0|^10.0",
+        "orchestra/testbench": "^9.0|^10.0|^11.0",
         "pestphp/pest": "^4.0",
+        "pestphp/pest-plugin-laravel": "^4.0",
         "phpunit/phpunit": "^12.5",
-        "spatie/pest-plugin-test-time": "^2.2",
-        "pestphp/pest-plugin-laravel": "^4.0"
+        "spatie/pest-plugin-test-time": "^2.2"
+    },
+    "suggest": {
+        "spatie/laravel-permission": "Required to restrict dashboards by role (use_spatie_permissions config option)."
     },
     "autoload": {
         "psr-4": {
@@ -48,6 +52,10 @@
     "scripts": {
         "post-autoload-dump": "@php ./vendor/bin/testbench package:discover --ansi",
         "format": "vendor/bin/pint",
+        "analyse": [
+            "phpstan analyse --memory-limit=1G || (testbench package:purge-skeleton && exit 1)",
+            "testbench package:purge-skeleton"
+        ],
         "test": "vendor/bin/pest",
         "test-coverage": "vendor/bin/pest --coverage"
     },

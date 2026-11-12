@@ -8,20 +8,31 @@
     class="dashboard-widget"
     wire:key="widget-{{ $widget['id'] }}-wrapper"
     @if ($showLoader)
-        x-data="{ loading: false }"
-        x-init="
-            $nextTick(() => {
-                const wireEl = $el.querySelector('[wire\\:id]');
-                if (! wireEl) return;
-                const wireId = wireEl.getAttribute('wire:id');
-                Livewire.hook('commit', ({ component, succeed, fail }) => {
-                    if (component.id !== wireId) return;
-                    loading = true;
-                    succeed(() => { loading = false; });
-                    fail(() => { loading = false; });
+        {{-- `init()` and `destroy()` are called by Alpine itself. The commit hook
+             is global to the window, so it is removed again when the widget
+             leaves the DOM (otherwise every `wire:navigate` visit adds one). --}}
+        x-data="{
+            loading: false,
+            stopListeningToCommits: null,
+            init() {
+                this.$nextTick(() => {
+                    const wireEl = this.$el.querySelector('[wire\\:id]');
+                    if (! wireEl) return;
+                    const wireId = wireEl.getAttribute('wire:id');
+                    this.stopListeningToCommits = Livewire.hook('commit', ({ component, succeed, fail }) => {
+                        if (component.id !== wireId) return;
+                        this.loading = true;
+                        succeed(() => { this.loading = false; });
+                        fail(() => { this.loading = false; });
+                    });
                 });
-            })
-        "
+            },
+            destroy() {
+                if (typeof this.stopListeningToCommits === 'function') {
+                    this.stopListeningToCommits();
+                }
+            },
+        }"
     @endif
 >
     @if ($widget['displayTitle'] && ! empty($widget['name']))
@@ -72,7 +83,7 @@
                 ],
                 $widget['settings'] ?? []
             ),
-            'widget-' . $widget['id']
+            key('widget-' . $widget['id'])
         )
 
         @if ($showLoader)

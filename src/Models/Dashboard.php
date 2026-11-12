@@ -2,7 +2,6 @@
 
 namespace MDDev\DynamicDashboard\Models;
 
-use Illuminate\Database\Eloquent\Attributes\Scope;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Model;
@@ -24,22 +23,24 @@ use MDDev\DynamicDashboard\Templates\TemplateRegistry;
  * @property bool $is_personal
  * @property int|null $created_by
  * @property int $ordering
- * @property array $settings
- * @property array $filters
- * @property array $display_filters
+ * @property array<string, mixed>|null $settings
+ * @property array<string, mixed>|null $filters
+ * @property array<string, bool>|null $display_filters
  * @property string|null $template_key
  * @property-read DashboardTemplate $template
  * @property-read int $columns
+ *
+ * @method static Builder<static> available(?string $pageClass = null)
+ * @method static Builder<static> visibleToCurrentUser()
  */
 class Dashboard extends Model
 {
-
     protected $table = 'dashboards';
 
     /**
      * The attributes that are mass assignable
      *
-     * @var array<int, string>
+     * @var list<string>
      */
     protected $fillable = [
         'name',
@@ -111,7 +112,8 @@ class Dashboard extends Model
 
         // When a dashboard's template changes, widgets that lived in sections
         // that no longer exist in the new template get moved to the first
-        // section of the new template, stacked at the bottom (x=0, y=maxY+1).
+        // section of the new template, stacked one below the other under the
+        // widgets already there (x=0, y=first free row).
         // This keeps the DB in sync with what the user sees — without it the
         // render-time fallback would mask stale section_slug values.
         static::updated(function (Dashboard $dashboard): void {
@@ -131,9 +133,7 @@ class Dashboard extends Model
                 return;
             }
 
-            $nextY = ($dashboard->widgets()
-                ->where('section_slug', $firstSlug)
-                ->max('y') ?? -1) + 1;
+            $nextY = DashboardWidget::nextFreeRow($dashboard->id, $firstSlug);
 
             foreach ($orphan as $widget) {
                 $widget->update([
@@ -141,7 +141,7 @@ class Dashboard extends Model
                     'x' => 0,
                     'y' => $nextY,
                 ]);
-                $nextY++;
+                $nextY += max(1, $widget->h);
             }
         });
     }
@@ -162,7 +162,7 @@ class Dashboard extends Model
      * When $filterName is provided, returns whether that specific filter should be displayed.
      * When omitted, returns the full visibility map.
      *
-     * @return bool|array<string>
+     * @return bool|array<string, bool>
      */
     public function getDisplayFilters(?string $filterName = null): array|bool
     {
@@ -176,13 +176,17 @@ class Dashboard extends Model
     /**
      * Resolve the layout template referenced by `template_key`, falling
      * back to the configured default when null or unknown.
+     *
+     * Object caching is disabled: Eloquent would otherwise keep returning the
+     * first template resolved on a model instance, even after its
+     * `template_key` has changed. The registry lookup is an in-memory array read.
      */
     protected function template(): Attribute
     {
         return Attribute::make(
             get: fn (): DashboardTemplate => app(TemplateRegistry::class)->find($this->template_key)
                 ?? app(TemplateRegistry::class)->default(),
-        );
+        )->withoutObjectCaching();
     }
 
     /**
@@ -202,17 +206,13 @@ class Dashboard extends Model
      * Personal dashboards are scoped to their creator: a row with `is_personal=true`
      * only appears when its `created_by` matches the current authenticated user
      * (no admin override — visibility is per-user even for editors).
+     *
+     * @param  Builder<static>  $query
      */
-    #[Scope]
-    protected function available(Builder $query, ?string $pageClass = null): void
+    public function scopeAvailable(Builder $query, ?string $pageClass = null): void
     {
-        $userId = auth()->id();
-
         $query->where('is_active', true)
-            ->where(function (Builder $query) use ($userId): void {
-                $query->where('is_personal', false)
-                    ->orWhere('created_by', $userId);
-            })
+            ->visibleToCurrentUser()
             ->orderBy('ordering');
 
         if ($pageClass) {
@@ -221,5 +221,32 @@ class Dashboard extends Model
                     ->orWhereNull('page');
             });
         }
+    }
+
+    /**
+     * Scope to hide other users' personal dashboards.
+     *
+     * Keeps every global dashboard plus the personal ones whose `created_by`
+     * matches the current authenticated user, whatever their active state.
+     *
+     * @param  Builder<static>  $query
+     */
+    public function scopeVisibleToCurrentUser(Builder $query): void
+    {
+        $userId = auth()->id();
+
+        // Without a user only global dashboards are visible. `orWhere` with a
+        // null id would otherwise match every personal dashboard whose
+        // creator is gone (`created_by IS NULL`).
+        if ($userId === null) {
+            $query->where('is_personal', false);
+
+            return;
+        }
+
+        $query->where(function (Builder $query) use ($userId): void {
+            $query->where('is_personal', false)
+                ->orWhere('created_by', $userId);
+        });
     }
 }

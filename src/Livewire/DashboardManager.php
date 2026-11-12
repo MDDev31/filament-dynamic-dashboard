@@ -34,6 +34,7 @@ use Filament\Tables\Contracts\HasTable;
 use Filament\Tables\Table;
 use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\Builder;
+use Livewire\Attributes\Locked;
 use Livewire\Component as LivewireComponent;
 use MDDev\DynamicDashboard\DashboardModelHelper;
 use MDDev\DynamicDashboard\Models\Dashboard;
@@ -49,11 +50,26 @@ class DashboardManager extends LivewireComponent implements HasActions, HasForms
     use InteractsWithActions, InteractsWithForms, InteractsWithTable;
 
     /**
+     * Locked: `canEdit()` is checked against this class on mount, so the
+     * client must not be able to swap it afterwards.
+     *
      * @var class-string<DynamicDashboard>|null
      */
+    #[Locked]
     public ?string $pageClass = null;
 
+    /**
+     * Locked: drives the "cannot delete / deactivate the current dashboard" guards.
+     */
+    #[Locked]
     public ?int $currentDashboardId = null;
+
+    /**
+     * Number of dashboards available on the page, cached for the current
+     * request. Not a Livewire property (protected), so it never outlives the
+     * request; `dashboardListChanged()` clears it after every change.
+     */
+    protected ?int $availableDashboardsCount = null;
 
     /**
      * Initialize the component with the dashboard page class and current dashboard ID.
@@ -75,7 +91,11 @@ class DashboardManager extends LivewireComponent implements HasActions, HasForms
     /**
      * Configure the dashboards table.
      *
-     * Displays all dashboards with:
+     * Lists every global dashboard plus the current user's own personal ones.
+     * Other users' personal dashboards are never part of the table query, so
+     * they cannot be edited, toggled, reordered or deleted from here either.
+     *
+     * Displays:
      * - Name column with template name description
      * - Widget count badge
      * - Active/Locked toggle columns
@@ -85,14 +105,14 @@ class DashboardManager extends LivewireComponent implements HasActions, HasForms
     public function table(Table $table): Table
     {
         return $table
-            ->query(DashboardModelHelper::model()::query())
+            ->query(DashboardModelHelper::model()::query()->visibleToCurrentUser())
             ->defaultSort('ordering')
             ->reorderable('ordering')
             ->columns([
                 TextColumn::make('name')
                     ->label(__('filament-dynamic-dashboard::dashboard.name'))
                     ->weight(FontWeight::Bold)
-                    ->description(fn (Dashboard $record): ?string => $record->template?->name())
+                    ->description(fn (Dashboard $record): string => $record->template->name())
                     ->icon(fn (Dashboard $record) => $record->is_personal ? Heroicon::OutlinedUser : null)
                     ->iconPosition(IconPosition::After)
                     ->tooltip(fn (Dashboard $record): ?string => $record->is_personal
@@ -112,12 +132,12 @@ class DashboardManager extends LivewireComponent implements HasActions, HasForms
                             ? __('filament-dynamic-dashboard::dashboard.cannot_deactivate_last')
                             : null))
                     ->afterStateUpdated(function (): void {
-                        $this->dispatch('dashboard-list-changed');
+                        $this->dashboardListChanged();
                     }),
                 ToggleColumn::make('is_locked')
                     ->label(__('filament-dynamic-dashboard::dashboard.locked'))
                     ->afterStateUpdated(function (): void {
-                        $this->dispatch('dashboard-list-changed');
+                        $this->dashboardListChanged();
                     }),
             ])
             ->recordActions([
@@ -127,7 +147,7 @@ class DashboardManager extends LivewireComponent implements HasActions, HasForms
                     ->modalFooterActionsAlignment(Alignment::End)
                     ->schema($this->getDashboardFormSchema())
                     ->after(function (): void {
-                        $this->dispatch('dashboard-list-changed');
+                        $this->dashboardListChanged();
                     }),
                 ReplicateAction::make()
                     ->label(__('filament-dynamic-dashboard::dashboard.duplicate'))
@@ -146,7 +166,7 @@ class DashboardManager extends LivewireComponent implements HasActions, HasForms
                             ]));
                         }
 
-                        $this->dispatch('dashboard-list-changed');
+                        $this->dashboardListChanged();
                     }),
                 DeleteAction::make()
                     ->modalHeading(__('filament-dynamic-dashboard::dashboard.delete'))
@@ -158,7 +178,7 @@ class DashboardManager extends LivewireComponent implements HasActions, HasForms
                             ? __('filament-dynamic-dashboard::dashboard.cannot_delete_last')
                             : null))
                     ->after(function (): void {
-                        $this->dispatch('dashboard-list-changed');
+                        $this->dashboardListChanged();
                     }),
             ])
             ->headerActions([
@@ -176,7 +196,7 @@ class DashboardManager extends LivewireComponent implements HasActions, HasForms
                         return $data;
                     })
                     ->after(function (): void {
-                        $this->dispatch('dashboard-list-changed');
+                        $this->dashboardListChanged();
                     }),
             ])
             ->paginated(false);
@@ -195,11 +215,32 @@ class DashboardManager extends LivewireComponent implements HasActions, HasForms
      */
     protected function isLastActiveDashboard(Dashboard $record): bool
     {
-        return $record->is_active && $this->getAvailableDashboards()->count() <= 1;
+        if (! $record->is_active) {
+            return false;
+        }
+
+        // Evaluated several times per table row: count once per request.
+        $this->availableDashboardsCount ??= $this->getAvailableDashboards()->count();
+
+        return $this->availableDashboardsCount <= 1;
+    }
+
+    /**
+     * Notify the dashboard page that a dashboard was created, updated,
+     * duplicated or deleted, and drop the cached count so the table that is
+     * re-rendered in the same request reflects the change.
+     */
+    protected function dashboardListChanged(): void
+    {
+        $this->availableDashboardsCount = null;
+
+        $this->dispatch('dashboard-list-changed');
     }
 
     /**
      * Get all available dashboards for selection.
+     *
+     * @return Builder<Dashboard>
      */
     public function getAvailableDashboards(): Builder
     {

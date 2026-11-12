@@ -124,6 +124,13 @@
     opacity: 1;
 }
 
+/* A touch screen has no hover to reveal the cluster with: keep it visible. */
+@media (hover: none) {
+    .dashboard-widget-actions {
+        opacity: 1;
+    }
+}
+
 /* When the dashboard is locked (or the user can't edit), the canvas carries
  * `.is-readonly`. The action cluster stays in the DOM so unlocking can show it
  * again live without a server re-render, but is fully hidden while readonly. */
@@ -262,4 +269,110 @@
 
 .dark .dashboard-widget-loader {
     background: rgba(17, 24, 39, 0.5);
+}
+
+/* ---------------------------------------------------------------------- *
+ * Compact layout (phones)                                                *
+ * ---------------------------------------------------------------------- *
+ * Below 768px the canvas stops being a grid of grids: whatever the
+ * template, sections stack and every widget takes one full-width row, in
+ * reading order (section, then row, then column).
+ *
+ * This is done in CSS only. GridStack keeps its instances and the layout it
+ * knows untouched — its inline `top/left/width/height` are simply overridden
+ * here — so nothing has to be converted, and widening the window brings the
+ * desktop layout straight back.
+ *
+ * `--dd-compact` is how the script learns which layout is in effect (it
+ * turns drag and resize off and stops saving positions while compact).
+ * Keeping the breakpoint in this file alone means the two cannot disagree. */
+.dashboard-canvas {
+    --dd-compact: 0;
+}
+
+@media (max-width: 47.9375rem) {
+    .dashboard-canvas {
+        --dd-compact: 1;
+        /* The template's column count comes as an inline style. */
+        grid-template-columns: minmax(0, 1fr) !important;
+        /* Each widget brings its own margin (see below): no extra gap. */
+        gap: 0;
+    }
+
+    .dashboard-section {
+        grid-column: 1 / -1 !important;
+        grid-row: auto !important;
+    }
+
+    /* A section without widget is only a drop target, and nothing can be
+     * dragged in this layout. */
+    .dashboard-section:not(:has(.grid-stack-item)) {
+        display: none;
+    }
+
+    .dashboard-section > .grid-stack {
+        display: flex;
+        flex-direction: column;
+        height: auto !important;
+        min-height: 0;
+    }
+
+    /* One widget per row, full width.
+     *
+     * Adaptive height: a widget is at least as tall as it was designed
+     * (`--dd-rows` rows of `--dd-row-height`, both set by the view) and
+     * grows with its content — stacked stats, a long table.
+     *
+     * The minimum matters for widgets that fill their box instead of having
+     * a height of their own (a chart with `maintainAspectRatio: false`).
+     * They size themselves with `height: 100%`, which needs a definite
+     * height all the way up. Every level below is therefore a stretched
+     * flex item: that is what makes a height definite when it only comes
+     * from a `min-height`. */
+    .dashboard-section > .grid-stack > .grid-stack-item {
+        position: relative !important;
+        top: auto !important;
+        right: auto !important;
+        left: auto !important;
+        width: 100% !important;
+        height: auto !important;
+        min-height: calc(var(--dd-rows, 2) * var(--dd-row-height, 80px));
+        /* Reading order inside the section: row first, then column. */
+        order: var(--dd-order, 0);
+        display: flex;
+        /* Same spacing as GridStack's item margin on the desktop layout. */
+        padding:
+            var(--gs-item-margin-top, 12px)
+            var(--gs-item-margin-right, 12px)
+            var(--gs-item-margin-bottom, 12px)
+            var(--gs-item-margin-left, 12px);
+        transition: none !important;
+    }
+
+    .dashboard-section > .grid-stack > .grid-stack-item > .grid-stack-item-content {
+        position: relative !important;
+        inset: auto !important;
+        display: flex;
+        flex: 1 1 auto;
+        min-width: 0;
+    }
+
+    .dashboard-canvas .dashboard-widget {
+        display: flex;
+        flex: 1 1 auto;
+        min-width: 0;
+        height: auto;
+    }
+
+    .dashboard-canvas .dashboard-widget-body {
+        flex: 1 1 auto;
+        min-width: 0;
+        height: auto;
+    }
+
+    /* Nothing can be moved or resized here. */
+    .dashboard-canvas .dd-drag-handle,
+    .dashboard-canvas .grid-stack-item > .ui-resizable-handle {
+        display: none !important;
+    }
 }

@@ -21,16 +21,22 @@ class AsWidgetSettings implements CastsAttributes
      */
     public function get(Model $model, string $key, mixed $value, array $attributes): array
     {
-        $settings = json_decode($value, true) ?? [];
-        if (! (class_exists($attributes['type']) && is_subclass_of($attributes['type'], DynamicWidget::class))) {
+        // The column is nullable: only decode real JSON strings and always
+        // fall back to an empty array (null, scalar or malformed JSON).
+        $settings = is_string($value) ? json_decode($value, true) : null;
+
+        if (! is_array($settings)) {
+            $settings = [];
+        }
+
+        // `type` is absent when the model was loaded with a partial select.
+        $widgetClass = $attributes['type'] ?? null;
+
+        if (! is_string($widgetClass) || ! class_exists($widgetClass) || ! is_subclass_of($widgetClass, DynamicWidget::class)) {
             return $settings;
         }
 
-        $widgetClass = new $attributes['type'];
-
-        $casts = $widgetClass::getSettingsCasts();
-
-        foreach ($casts as $settingKey => $cast) {
+        foreach ($widgetClass::getSettingsCasts() as $settingKey => $cast) {
             if (! array_key_exists($settingKey, $settings) || ! isset($settings[$settingKey])) {
                 continue;
             }

@@ -10,8 +10,9 @@ namespace MDDev\DynamicDashboard\Templates;
  * parent grid the section occupies (default 1). `rowHeight` is the inner
  * GridStack cell height in pixels.
  *
- * `rawName` is a Laravel translation key for the visible header; `null`
- * means the section has no header.
+ * `rawName` is a Laravel translation key for the section's label, shown in
+ * the section selector of the Add Widget modal; `null` means the section has
+ * no label and its slug is shown instead.
  */
 final readonly class DashboardSection
 {
@@ -24,7 +25,7 @@ final readonly class DashboardSection
     ) {}
 
     /**
-     * Localized header label, or null when the section has no visible header.
+     * Localized label of the section, or null when it has none.
      */
     public function name(): ?string
     {
